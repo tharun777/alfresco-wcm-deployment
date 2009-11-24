@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>org.alfresco.extension</groupId>
+  <artifactId>alfresco-wcm-deployment</artifactId>
+<!--
+  <packaging>amp</packaging>
+-->
+  <!-- Comment the previous line and uncomment the following line if you wish to generate an Eclipse project.
+       The Maven Eclipse plugin does the wrong thing if packaging != jar. -->
+  <packaging>jar</packaging>
+  <name>Alfresco WCM Deployment</name>
+  <version>0.1</version>
+
+  <repositories>
+    <repository>
+      <id>jboss-public</id>
+      <name>JBoss Public Repository</name>
+      <url>http://repository.jboss.com/maven2</url>
+    </repository>
+    <repository>
+      <id>ss-public</id>
+      <name>SourceSense Public Repository</name>
+      <url>http://repository.sourcesense.com/nexus/content/repositories/alfresco.public.releases/</url>
+    </repository>
+    <repository>
+      <id>alfresco-employee-repository</id>
+      <name>Alfresco Employee Repository (private)</name>
+      <url>https://svn.alfresco.com/repos/field/maven</url>
+    </repository>
+  </repositories>
+
+  <pluginRepositories>
+    <pluginRepository>
+      <id>ss-public</id>
+      <name>SourceSense Public Repository</name>
+      <url>http://repository.sourcesense.com/nexus/content/repositories/alfresco.public.releases/</url>
+    </pluginRepository>
+  </pluginRepositories>
+
+  <dependencies>
+    <!-- Non-Alfresco dependencies -->
+    <!-- Note: you will probably have to manually install the mongodb Java driver into your local Maven repository.
+              The following command will do this:
+
+                  mvn install:install-file -DgroupId=com.mongodb -DartifactId=mongo-java-driver -Dversion=1.0 -Dpackaging=jar -Dfile=/path/to/mongo-1.0.jar 
+				
+    -->
+    <dependency>
+      <groupId>com.mongodb</groupId>
+      <artifactId>mongo-java-driver</artifactId>
+      <version>1.0</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- Alfresco Community -->
+<!--
+    <dependency>
+      <groupId>org.alfresco</groupId>
+      <artifactId>alfresco-wdr-deployment</artifactId>
+      <version>3.2</version>
+      <classifier>labs</classifier>
+      <scope>provided</scope>
+    </dependency>
+-->
+
+    <!-- Alfresco Enterprise 3.2beta1 -->
+    <dependency>
+      <groupId>org.alfresco</groupId>
+      <artifactId>alfresco-wdr-deployment</artifactId>
+      <version>3.2.0beta1</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <source>1.5</source>
+          <target>1.5</target>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.alfresco.maven.plugin</groupId>
+        <artifactId>maven-amp-plugin</artifactId>
+        <version>3.0.0</version>
+        <extensions>true</extensions>
+        <configuration>
+          <archive>
+            <addMavenDescriptor>false</addMavenDescriptor>
+          </archive>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+</project>

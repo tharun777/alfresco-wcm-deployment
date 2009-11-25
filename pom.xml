@@ -43,9 +43,13 @@
   <dependencies>
     <!-- Non-Alfresco dependencies -->
     <!-- Note: you will probably have to manually install the mongodb Java driver into your local Maven repository.
-              The following command will do this:
+               You can download the file from:
 
-                  mvn install:install-file -DgroupId=com.mongodb -DartifactId=mongo-java-driver -Dversion=1.0 -Dpackaging=jar -Dfile=/path/to/mongo-1.0.jar 
+                   http://github.com/mongodb/mongo-java-driver/downloads
+
+               The following command will install it into your local Maven repository:
+
+                   mvn install:install-file -DgroupId=com.mongodb -DartifactId=mongo-java-driver -Dversion=1.0 -Dpackaging=jar -Dfile=/path/to/mongo-1.0.jar 
 				
     -->
     <dependency>

@@ -49,7 +49,8 @@ public class LoggingDeploymentTarget
 {
     private final static Log log = LogFactory.getLog(LoggingDeploymentTarget.class);
     
-
+    
+    
     /**
      * @see org.alfresco.deployment.DeploymentTarget#begin(java.lang.String, java.lang.String, int, java.lang.String, java.lang.String)
      */
@@ -57,9 +58,9 @@ public class LoggingDeploymentTarget
                         final String storeName,
                         final int    version,
                         final String user,
-                        final String password)    // This may change.  See https://issues.alfresco.com/jira/browse/ETHREEOH-3612
+                        final char[] password)
     {
-        log.info("LoggingDeploymentTarget.begin(" + target + ", " + storeName + ", " + String.valueOf(version) + ", " + user + ", " + password + ")");
+        log.info("LoggingDeploymentTarget.begin(" + target + ", " + storeName + ", " + String.valueOf(version) + ", " + user + ", " + String.valueOf(password) + ")");
         
         return(target + "/" + storeName + "/" + String.valueOf(version));
     }

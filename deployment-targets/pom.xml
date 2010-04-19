@@ -23,21 +23,10 @@
   </repositories>
 
   <dependencies>
-    <!-- Non-Alfresco dependencies -->
-    <!-- Note: you will probably have to manually install the mongodb Java driver into your local Maven repository.
-               You can download the file from:
-
-                   http://github.com/mongodb/mongo-java-driver/downloads
-
-               The following command will install it into your local Maven repository:
-
-                   mvn install:install-file -DgroupId=com.mongodb -DartifactId=mongo-java-driver -Dversion=1.0 -Dpackaging=jar -Dfile=/path/to/mongo-1.0.jar 
-				
-    -->
     <dependency>
-      <groupId>com.mongodb</groupId>
+      <groupId>org.mongodb</groupId>
       <artifactId>mongo-java-driver</artifactId>
-      <version>1.0</version>
+      <version>1.3</version>
       <scope>provided</scope>
     </dependency>
 
@@ -52,11 +41,11 @@
     </dependency>
 -->
 
-    <!-- Alfresco Enterprise 3.2beta1 -->
+    <!-- Alfresco Enterprise -->
     <dependency>
       <groupId>org.alfresco</groupId>
       <artifactId>alfresco-deployment</artifactId>
-      <version>3.2.0beta1</version>
+      <version>3.2.0r</version>
       <scope>provided</scope>
     </dependency>
   </dependencies>
@@ -66,8 +55,8 @@
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
-          <source>1.5</source>
-          <target>1.5</target>
+          <source>1.6</source>
+          <target>1.6</target>
         </configuration>
       </plugin>
     </plugins>

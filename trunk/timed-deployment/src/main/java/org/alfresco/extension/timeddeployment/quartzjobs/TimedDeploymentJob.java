@@ -139,8 +139,16 @@ public class TimedDeploymentJob
                 return transactionService.getRetryingTransactionHelper().doInTransaction(retryingDeploymentWork);
             }
         };
-         
-        AuthenticationUtil.runAs(runAsDeploymentWork, AuthenticationUtil.SYSTEM_USER_NAME);
+        
+        try
+        {
+            AuthenticationUtil.runAs(runAsDeploymentWork, AuthenticationUtil.SYSTEM_USER_NAME);
+        }
+        catch (Exception e)
+        {
+            // Log the error and swallow it - better we handle it than Quartz
+            log.error("Unexpected error while executing timed deployment job: " + e.getMessage(), e);
+        }
     }
     
     

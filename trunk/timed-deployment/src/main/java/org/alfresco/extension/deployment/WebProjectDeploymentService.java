@@ -36,5 +36,19 @@ import org.alfresco.service.cmr.repository.NodeRef;
  */
 public interface WebProjectDeploymentService
 {
+    /**
+     * Deploys the latest version (snapshot) of the given Web Project's staging sandbox to all live deployment targets.
+     *  
+     * @param webProjectRef The Node Ref of the DM space representing the Web Project <i>(must not be null)</i>.
+     */
     void deploy(final NodeRef webProjectRef);
+
+
+    /**
+     * Deploys the given version (snapshot) of the given Web Project's staging sandbox to all live deployment targets.
+     *  
+     * @param webProjectRef   The Node Ref of the DM space representing the Web Project <i>(must not be null)</i>.
+     * @param versionToDeploy The version to deploy <i>(&lt;= 0 means deploy the latest version)</i>.
+     */
+    void deploy(final NodeRef webProjectRef, int versionToDeploy);
 }

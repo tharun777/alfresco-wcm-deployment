@@ -27,7 +27,6 @@ package org.alfresco.extension.deployment.impl;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -98,23 +97,42 @@ public class WebProjectDeploymentServiceImpl
     @Override
     public void deploy(final NodeRef webProjectRef)
     {
+        deploy(webProjectRef, -1);
+    }
+    
+    
+    /**
+     * @see org.alfresco.extension.deployment.WebProjectDeploymentService#deploy(org.alfresco.service.cmr.repository.NodeRef, int)
+     */
+    @Override
+    public void deploy(NodeRef webProjectRef, int versionToDeploy)
+    {
         String stagingSandboxStoreId = getStagingStoreId(webProjectRef);
         
-        deploy(webProjectRef, stagingSandboxStoreId, WCMAppModel.CONSTRAINT_LIVESERVER, avmService.getLatestSnapshotID(stagingSandboxStoreId));
+        if (versionToDeploy <= 0)
+        {
+            versionToDeploy = avmService.getLatestSnapshotID(stagingSandboxStoreId);
+        }
+        
+        deploy(webProjectRef,
+               stagingSandboxStoreId,
+               WCMAppModel.CONSTRAINT_LIVESERVER,
+               versionToDeploy,
+               getAllLiveDeploymentTargets(webProjectRef));
     }
 
 
-    
+
+
     // This method is lifted almost verbatim from org.alfresco.web.bean.wcm.DeployWebsiteDialog (which is useless to us since it's tightly coupled to the Web Client).
-    private void deploy(final NodeRef webProjectRef, final String store, final String deployMode, final int versionToDeploy)
+    private void deploy(final NodeRef webProjectRef, final String store, final String deployMode, final int versionToDeploy, final String[] deployTo)
     {
         if (logger.isDebugEnabled())
-            logger.debug("Requesting deployment of: " + webProjectRef.toString());
+            logger.debug("Requesting deployment of: " + webProjectRef.toString() + ", version " + versionToDeploy + " to servers: " + arrayToString(deployTo));
         
         // WARNING: the following 2 lines are NOT lifted verbatim from the class mentioned above
-        String   storeRoot  = AVMUtil.buildAVMPath(store, JNDIConstants.DIR_DEFAULT_WWW_APPBASE);
-        NodeRef  websiteRef = AVMNodeConverter.ToNodeRef(versionToDeploy, storeRoot);
-        String[] deployTo   = getAllEligibleDeploymentTargets(webProjectRef, deployMode);
+        String  storeRoot  = AVMUtil.buildAVMPath(store, JNDIConstants.DIR_DEFAULT_WWW_APPBASE);
+        NodeRef websiteRef = AVMNodeConverter.ToNodeRef(versionToDeploy, storeRoot);
          
         if (deployTo != null && deployTo.length > 0)
         {
@@ -235,7 +253,7 @@ public class WebProjectDeploymentServiceImpl
     }
     
     
-    private String[] getAllEligibleDeploymentTargets(final NodeRef webProjectRef, final String deployMode)
+    private String[] getAllLiveDeploymentTargets(final NodeRef webProjectRef)
     {
         String[] result = null;
         
@@ -252,14 +270,12 @@ public class WebProjectDeploymentServiceImpl
                 NodeRef childNode  = assocRef.getChildRef();
                 String  targetType = (String)unprotectedNodeService.getProperty(childNode, WCMAppModel.PROP_DEPLOYSERVERTYPE);
                 
-                if (deployMode != null &&
-                    deployMode.equals(targetType))
+                if (WCMAppModel.CONSTRAINT_LIVESERVER.equals(targetType))
                 {
                     tmpResult.add(assocRef.getChildRef().toString());
                 }
             }
             
-            // Ugh Java sucks
             result = new String[tmpResult.size()];
             int i = 0;
             
@@ -268,6 +284,32 @@ public class WebProjectDeploymentServiceImpl
                 result[i] = childNodeRefStr;
                 i++;
             }
+        }
+        
+        return(result);
+    }
+    
+    
+    //####TODO: pretty sure this exists in commons-lang somewhere - need to look for it
+    private String arrayToString(final String[] values)
+    {
+        String result = null;
+        
+        if (values != null)
+        {
+            StringBuffer temp = new StringBuffer();
+            
+            for (int i = 0; i < values.length; i++)
+            {
+                if (i > 0)
+                {
+                    temp.append(", ");
+                }
+                
+                temp.append(values[i]);
+            }
+            
+            result = temp.toString();
         }
         
         return(result);

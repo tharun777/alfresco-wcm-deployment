@@ -28,7 +28,10 @@ Brian Robinson (brobinson@alfresco.com)
 
 Pre-requisites
 --------------
-Alfresco 3.2 or better (tested on Alfresco Enterprise 3.1SP2 and 3.2r)
+Alfresco 3.2 or better for the custom deployment targets (tested on Alfresco
+Enterprise 3.2r).
+Alfresco 3.1 or better for the timed deployment job (tested on Alfresco
+Enterprise 3.1SP2)
 
 
 Installation / Configuration

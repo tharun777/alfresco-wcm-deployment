@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:lang="http://www.springframework.org/schema/lang"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.0.xsd http://www.springframework.org/schema/lang http://www.springframework.org/schema/lang/spring-lang-2.0.xsd">
+
+  <!-- The core implementation bean that actually performs Web Project deployments.  This configuration does not normally need to be modified. -->
+  <bean id="extension.webProjectDeploymentService"
+        class="org.alfresco.extension.deployment.impl.WebProjectDeploymentServiceImpl">
+    <constructor-arg index="0" ref="actionService" />
+    <constructor-arg index="1" ref="nodeService" />
+    <constructor-arg index="2" ref="permissionService" />
+    <constructor-arg index="3" ref="avmService" />
+  </bean>
+
+</beans>

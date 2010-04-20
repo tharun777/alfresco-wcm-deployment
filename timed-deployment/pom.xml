@@ -4,9 +4,14 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.alfresco.extension</groupId>
-  <artifactId>alfresco-wcm-deployment-targets</artifactId>
+  <artifactId>alfresco-wcm-deployment-timed-deployment</artifactId>
+  <packaging>amp</packaging>
+  <!-- Comment the previous line and uncomment the following line if you wish to generate an Eclipse project.
+       The Maven Eclipse plugin does the wrong thing if packaging != jar. -->
+<!--
   <packaging>jar</packaging>
-  <name>Alfresco WCM Deployment - Deployment Targets</name>
+-->
+  <name>Alfresco WCM Deployment - Timed Deployment</name>
   <version>0.1</version>
 
   <repositories>
@@ -36,13 +41,6 @@
   </pluginRepositories>
 
   <dependencies>
-    <dependency>
-      <groupId>org.mongodb</groupId>
-      <artifactId>mongo-java-driver</artifactId>
-      <version>1.4</version>
-      <scope>provided</scope>
-    </dependency>
-
     <!-- Alfresco Community -->
 <!-- NOTE: UNTESTED!!
     <dependency>
@@ -57,7 +55,7 @@
     <!-- Alfresco Enterprise -->
     <dependency>
       <groupId>org.alfresco</groupId>
-      <artifactId>alfresco-deployment</artifactId>
+      <artifactId>alfresco-repository</artifactId>
       <version>3.2.0r</version>
       <scope>provided</scope>
     </dependency>
@@ -70,6 +68,17 @@
         <configuration>
           <source>1.6</source>
           <target>1.6</target>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.alfresco.maven.plugin</groupId>
+        <artifactId>maven-amp-plugin</artifactId>
+        <version>3.0.0</version>
+        <extensions>true</extensions>
+        <configuration>
+          <archive>
+            <addMavenDescriptor>false</addMavenDescriptor>
+          </archive>
         </configuration>
       </plugin>
     </plugins>

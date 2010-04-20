@@ -1,0 +1,48 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:lang="http://www.springframework.org/schema/lang"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.0.xsd http://www.springframework.org/schema/lang http://www.springframework.org/schema/lang/spring-lang-2.0.xsd">
+
+  <!--
+   *
+   * To configure one or more timed deployment jobs, replace [webProjectName] with a non-whitespace symbolic name for your Web Project
+   * (any value is allowed, but for simplicity the DNS name of your Web Project is recommended), then replace the other configuration
+   * properties (defined in the "jobDataAsMap" property) as follows:
+   *
+   *  - transactionService:     the reference to the Alfresco transaction service. Shouldn't normally be modified.
+   *  - timedDeploymentService: the reference to the underlying timed deployment service. Shouldn't normally be modified.
+   *  - webProjectNodeRef:      the node ref of the Web Project that this job will operate against.
+   *                            You can find this out by looking at the properties of the Web Project in the Explorer UI.
+   *
+   * The frequency of the job (ie. how often it runs) can be configured via the cronExpression property.  The allowed values for this
+   * property are described in more detail at http://www.opensymphony.com/quartz/wikidocs/CronTriggers%20Tutorial.html.
+   *
+   * Finally, you may configure multiple instances of this bean (with different ids) if you wish to configure timed deployment for multiple Web
+   * Projects.  In this case you may also configure different schedules for each of those Web Projects.
+   *
+  -->
+  <bean id="[myWebProjectName].timedDeploymentTrigger" class="org.alfresco.util.CronTriggerBean">
+    <property name="jobDetail">
+      <bean class="org.springframework.scheduling.quartz.JobDetailBean">
+        <property name="jobClass" value="org.alfresco.extension.timeddeployment.quartzjobs.TimedDeploymentJob" />
+        <property name="jobDataAsMap">
+          <map>
+            <entry key="transactionService">
+              <ref bean="transactionService" />
+            </entry>
+            <entry key="webProjectDeploymentService">
+              <ref bean="extension.webProjectDeploymentService" />
+            </entry>
+            <entry key="webProjectNodeRef" value="[webProjectNodeRef]" />
+          </map>
+        </property>
+      </bean>
+    </property>
+    <property name="scheduler" ref="schedulerFactory" />
+    <!-- trigger every 10 minutes -->
+    <property name="cronExpression" value="0 0/10 * * * ?" />
+  </bean>
+
+
+</beans>

@@ -6,7 +6,7 @@
 
   <!--
    *
-   * To configure one or more timed deployment jobs, replace [webProjectName] with a non-whitespace symbolic name for your Web Project
+   * To configure one or more timed deployment jobs, replace [webProjectDNSName] with a non-whitespace symbolic name for your Web Project
    * (any value is allowed, but for simplicity the DNS name of your Web Project is recommended), then replace the other configuration
    * properties (defined in the "jobDataAsMap" property) as follows:
    *
@@ -22,7 +22,7 @@
    * Projects.  In this case you may also configure different schedules for each of those Web Projects.
    *
   -->
-  <bean id="[myWebProjectName].timedDeploymentTrigger" class="org.alfresco.util.CronTriggerBean">
+  <bean id="wcmTimedDeploymentTrigger.[webProjectDNSName]" class="org.alfresco.util.CronTriggerBean">
     <property name="jobDetail">
       <bean class="org.springframework.scheduling.quartz.JobDetailBean">
         <property name="jobClass" value="org.alfresco.extension.timeddeployment.quartzjobs.TimedDeploymentJob" />

@@ -12,7 +12,7 @@
   <packaging>jar</packaging>
 -->
   <name>Alfresco WCM Deployment - Timed Deployment</name>
-  <version>0.2-SNAPSHOT</version>
+  <version>0.2</version>
 
   <repositories>
     <repository>
@@ -45,8 +45,8 @@
 <!-- NOTE: UNTESTED!!
     <dependency>
       <groupId>org.alfresco</groupId>
-      <artifactId>alfresco-deployment</artifactId>
-      <version>3.2</version>
+      <artifactId>alfresco-repository</artifactId>
+      <version>3.1</version>
       <classifier>labs</classifier>
       <scope>provided</scope>
     </dependency>
@@ -56,7 +56,7 @@
     <dependency>
       <groupId>org.alfresco</groupId>
       <artifactId>alfresco-repository</artifactId>
-      <version>3.2.0r</version>
+      <version>3.1.0</version>
       <scope>provided</scope>
     </dependency>
   </dependencies>

@@ -40,7 +40,7 @@ import org.apache.commons.logging.LogFactory;
 import org.alfresco.model.WCMAppModel;
 import org.alfresco.repo.avm.AVMNodeConverter;
 import org.alfresco.repo.avm.actions.AVMDeployWebsiteAction;
-import org.alfresco.repo.avm.util.AVMUtil;
+//import org.alfresco.repo.avm.util.AVMUtil;   // 3.1SP2+ only
 import org.alfresco.repo.domain.PropertyValue;
 import org.alfresco.service.cmr.action.Action;
 import org.alfresco.service.cmr.action.ActionService;
@@ -131,7 +131,7 @@ public class WebProjectDeploymentServiceImpl
             logger.debug("Requesting deployment of: " + webProjectRef.toString() + ", version " + versionToDeploy + " to servers: " + arrayToString(deployTo));
         
         // WARNING: the following 2 lines are NOT lifted verbatim from the class mentioned above
-        String  storeRoot  = AVMUtil.buildAVMPath(store, JNDIConstants.DIR_DEFAULT_WWW_APPBASE);
+        String  storeRoot  = buildAVMPath(store, JNDIConstants.DIR_DEFAULT_WWW_APPBASE);
         NodeRef websiteRef = AVMNodeConverter.ToNodeRef(versionToDeploy, storeRoot);
          
         if (deployTo != null && deployTo.length > 0)
@@ -314,6 +314,27 @@ public class WebProjectDeploymentServiceImpl
         
         return(result);
     }
+    
+    
+    /**
+     * WARNING!  Copied from org.alfresco.repo.avm.util.AVMUtil (which was only added in 3.1SP2 or thereabouts).
+     */
+    private static final char AVM_STORE_SEPARATOR_CHAR = ':';
+    private static final char AVM_PATH_SEPARATOR_CHAR  = '/';
+    private String buildAVMPath(String storeName, String storeRelativePath)
+    {
+        // note: assumes storeRelativePath is not null and does not contain ':', although will add leading slash (if missing)
+        StringBuilder builder = new StringBuilder();
+        builder.append(storeName).append(AVM_STORE_SEPARATOR_CHAR);
+        if ((storeRelativePath.length() == 0) || (storeRelativePath.charAt(0) != AVM_PATH_SEPARATOR_CHAR))
+        {
+            builder.append(AVM_PATH_SEPARATOR_CHAR);
+        }
+        builder.append(storeRelativePath);
+        return builder.toString();
+    }
+    
+
     
 
 }

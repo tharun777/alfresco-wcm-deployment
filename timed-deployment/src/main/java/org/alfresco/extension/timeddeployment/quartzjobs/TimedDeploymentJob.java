@@ -49,7 +49,7 @@ import org.alfresco.util.CronTriggerBean;
  * Configuration is as follows:
  * 
  * <code>
- *  &lt;bean id="[myAvmStore].timedDeploymentTrigger" class="org.alfresco.util.CronTriggerBean"&gt;
+ *  &lt;bean id="wcmTimedDeploymentTrigger.[webProjectDNSName]" class="org.alfresco.util.CronTriggerBean"&gt;
  *    &lt;property name="jobDetail"&gt;
  *      &lt;bean class="org.springframework.scheduling.quartz.JobDetailBean"&gt;
  *        &lt;property name="jobClass" value="org.alfresco.extension.timeddeployment.quartzjobs.TimedDeploymentJob" /&gt;
@@ -61,7 +61,9 @@ import org.alfresco.util.CronTriggerBean;
  *            &lt;entry key="webProjectDeploymentService"&gt;
  *              &lt;ref bean="extension.webProjectDeploymentService" /&gt;
  *            &lt;/entry&gt;
- *            &lt;entry key="webProjectNodeRef" value="[webProjectNodeRef]" /&gt;  &lt;-- Node Ref of Web Project DM Space --&gt;
+ *            &lt;entry key="webProjectNodeRef" value="[webProjectNodeRef]" /&gt;  &lt;!-- Node Ref of Web Project DM Space --&gt;
+ *            &lt;!-- OR --&gt;
+ *            &lt;entry key="webProjectDNSName" value="[webProjectDNSName]" /&gt;  &lt;!-- DNS Name of Web Project --&gt;
  *          &lt;/map&gt;
  *        &lt;/property&gt;
  *      &lt;/bean&gt;
@@ -75,10 +77,13 @@ import org.alfresco.util.CronTriggerBean;
  *  The configuration properties for this bean (defined in the "jobDataAsMap" property) are as follows: 
  *  <ul>
  *    <li><code>transactionService</code>: the reference to the Alfresco transaction service. Shouldn't normally be modified.</li>
- *    <li><code>timedDeploymentService</code>: the reference to the underlying timed deployment service. Shouldn't normally be modified.</li>
+ *    <li><code>webProjectDeploymentService</code>: the reference to the underlying timed deployment service. Shouldn't normally be modified.</li>
  *    <li><code>webProjectNodeRef</code>: the node ref of the Web Project that this job will operate against.
  *        You can find this out by looking at the properties of the Web Project in the Explorer UI.</li>
+ *    <li><code>webProjectDNSName</code>: the DNS name of the Web Project that this job will operate against.</li>
  *  </ul>
+ *  
+ *  Note that only webProjectNodeRef OR webProjectDNSName should be provided.
  *  
  *  The frequency of the job (ie. how often it runs) can be configured via the <code>cronExpression</code> property.  This is described in more detail in
  *  the <a href="http://www.opensymphony.com/quartz/wikidocs/CronTriggers%20Tutorial.html">Quartz documentation</a>.
@@ -98,11 +103,13 @@ public class TimedDeploymentJob
     private final static String JOB_DATA_PARAMETER_NAME_TRANSACTION_SERVICE            = "transactionService";
     private final static String JOB_DATA_PARAMETER_NAME_WEB_PROJECT_DEPLOYMENT_SERVICE = "webProjectDeploymentService";
     private final static String JOB_DATA_PARAMETER_NAME_WEB_PROJECT_NODE_REF           = "webProjectNodeRef";
+    private final static String JOB_DATA_PARAMETER_NAME_WEB_PROJECT_DNS_NAME           = "webProjectDNSName";
     
     private boolean                     initialised                 = false;
     private TransactionService          transactionService          = null;
     private WebProjectDeploymentService webProjectDeploymentService = null;
     private NodeRef                     webProjectNodeRef           = null;
+    private String                      webProjectDNSName           = null;
     
 
     /**
@@ -114,10 +121,10 @@ public class TimedDeploymentJob
         // Weird initialisation logic due to lack of dependency injection in Quartz jobs.
         synchronized(this)
         {
-            if (!this.initialised)
+            if (!initialised)
             {
                 initialiseConfiguration(context);
-                this.initialised = true;
+                initialised = true;
             }
         }
         
@@ -132,11 +139,19 @@ public class TimedDeploymentJob
                     public Object execute()
                         throws Exception
                     {
-                        webProjectDeploymentService.deploy(webProjectNodeRef);
+                        if (webProjectNodeRef != null)
+                        {
+                            webProjectDeploymentService.deploy(webProjectNodeRef);
+                        }
+                        else
+                        {
+                            webProjectDeploymentService.deploy(webProjectDNSName);
+                        }
+                        
                         return null;
                      }
                 };
-                return transactionService.getRetryingTransactionHelper().doInTransaction(retryingDeploymentWork);
+                return(transactionService.getRetryingTransactionHelper().doInTransaction(retryingDeploymentWork));
             }
         };
         
@@ -170,9 +185,10 @@ public class TimedDeploymentJob
         Object     transactionServiceObj          = jobData.get(JOB_DATA_PARAMETER_NAME_TRANSACTION_SERVICE);
         Object     webProjectDeploymentServiceObj = jobData.get(JOB_DATA_PARAMETER_NAME_WEB_PROJECT_DEPLOYMENT_SERVICE);
         Object     webProjectNodeRefObj           = jobData.get(JOB_DATA_PARAMETER_NAME_WEB_PROJECT_NODE_REF);
+        Object     webProjectDNSNameObj           = jobData.get(JOB_DATA_PARAMETER_NAME_WEB_PROJECT_DNS_NAME);
 
         
-        // Transaction Service
+        // Service Registry
         if (transactionServiceObj == null ||
             !(transactionServiceObj instanceof TransactionService))
         {
@@ -190,15 +206,25 @@ public class TimedDeploymentJob
         }
         
         this.webProjectDeploymentService = (WebProjectDeploymentService)webProjectDeploymentServiceObj;
+
         
-        // AVM Store
-        if (webProjectNodeRefObj == null ||
-            !(webProjectNodeRefObj instanceof String))
+        // Web Project, either by NodeRef or DNS Name
+        if (webProjectNodeRefObj == null &&
+            webProjectDNSNameObj == null)
         {
-            throw new AlfrescoRuntimeException(JOB_DATA_PARAMETER_NAME_WEB_PROJECT_NODE_REF + " must be provided and must be a String value.");
+            throw new AlfrescoRuntimeException("Either " + JOB_DATA_PARAMETER_NAME_WEB_PROJECT_NODE_REF + " or " +
+                                               JOB_DATA_PARAMETER_NAME_WEB_PROJECT_DNS_NAME + " must be provided.");
         }
         
-        this.webProjectNodeRef = new NodeRef((String)webProjectNodeRefObj);
+        if (webProjectNodeRefObj != null)
+        {
+            this.webProjectNodeRef = new NodeRef((String)webProjectNodeRefObj);
+        }
+        
+        if (webProjectDNSNameObj != null)
+        {
+            this.webProjectDNSName = (String)webProjectDNSNameObj;
+        }
     }
     
 }

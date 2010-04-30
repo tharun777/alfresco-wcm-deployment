@@ -7,10 +7,8 @@
   <!-- The core implementation bean that actually performs Web Project deployments.  This configuration does not normally need to be modified. -->
   <bean id="extension.webProjectDeploymentService"
         class="org.alfresco.extension.deployment.impl.WebProjectDeploymentServiceImpl">
-    <constructor-arg index="0" ref="actionService" />
-    <constructor-arg index="1" ref="nodeService" />
-    <constructor-arg index="2" ref="permissionService" />
-    <constructor-arg index="3" ref="avmService" />
+    <constructor-arg index="0" ref="ServiceRegistry" />
+    <constructor-arg index="1" ref="repositoryHelper" />
   </bean>
 
 </beans>

@@ -27,6 +27,7 @@ package org.alfresco.extension.deployment.impl;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -42,10 +43,14 @@ import org.alfresco.repo.avm.AVMNodeConverter;
 import org.alfresco.repo.avm.actions.AVMDeployWebsiteAction;
 //import org.alfresco.repo.avm.util.AVMUtil;   // 3.1SP2+ only
 import org.alfresco.repo.domain.PropertyValue;
+import org.alfresco.repo.model.Repository;
+import org.alfresco.service.ServiceRegistry;
 import org.alfresco.service.cmr.action.Action;
 import org.alfresco.service.cmr.action.ActionService;
 import org.alfresco.service.cmr.avm.AVMService;
 import org.alfresco.service.cmr.dictionary.DataTypeDefinition;
+import org.alfresco.service.cmr.model.FileInfo;
+import org.alfresco.service.cmr.model.FileNotFoundException;
 import org.alfresco.service.cmr.repository.ChildAssociationRef;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.cmr.repository.NodeService;
@@ -69,28 +74,51 @@ public class WebProjectDeploymentServiceImpl
 {
     private final Log logger = LogFactory.getLog(WebProjectDeploymentServiceImpl.class);
     
-    private final ActionService     actionService;
-    private final NodeService       unprotectedNodeService;
-    private final PermissionService unprotectedPermissionService;
-    private final AVMService        avmService;
+    private final ServiceRegistry serviceRegistry;
+    private final Repository      repository;
     
     private boolean updateTestServer = true;   // Not quite sure what the point of this is, but don't want to strip it out
     
     
-    public WebProjectDeploymentServiceImpl(final ActionService     actionService,
-                                           final NodeService       unprotectedNodeService,
-                                           final PermissionService unprotectedPermissionService,
-                                           final AVMService        avmService)
+    
+    public WebProjectDeploymentServiceImpl(final ServiceRegistry serviceRegistry,
+                                           final Repository      repository)
     {
-        this.actionService                = actionService;
-        this.unprotectedNodeService       = unprotectedNodeService;
-        this.unprotectedPermissionService = unprotectedPermissionService;
-        this.avmService                   = avmService;
+        this.serviceRegistry = serviceRegistry;
+        this.repository      = repository;
     }
+            
     
+    /**
+     * @see org.alfresco.extension.deployment.WebProjectDeploymentService#deploy(java.lang.String)
+     */
+    @Override
+    public void deploy(String webProjectDNSName)
+    {
+        deploy(webProjectDNSName, -1);
+    }
 
-    
-    
+
+
+    /**
+     * @see org.alfresco.extension.deployment.WebProjectDeploymentService#deploy(java.lang.String, int)
+     */
+    @Override
+    public void deploy(String webProjectDNSName, int versionToDeploy)
+    {
+        NodeRef webProjectNodeRef = findWebProjectByDNSName(webProjectDNSName);
+        
+        if (webProjectNodeRef != null)
+        {
+            deploy(webProjectNodeRef, versionToDeploy);
+        }
+        else
+        {
+            throw new IllegalArgumentException("DNS Name " + webProjectDNSName + " does not refer to a Web Project in this installation of Alfresco.");
+        }
+    }
+
+
     /**
      * @see org.alfresco.extension.deployment.WebProjectDeploymentService#deploy(org.alfresco.service.cmr.repository.NodeRef)
      */
@@ -111,7 +139,7 @@ public class WebProjectDeploymentServiceImpl
         
         if (versionToDeploy <= 0)
         {
-            versionToDeploy = avmService.getLatestSnapshotID(stagingSandboxStoreId);
+            versionToDeploy = serviceRegistry.getAVMService().getLatestSnapshotID(stagingSandboxStoreId);
         }
         
         deploy(webProjectRef,
@@ -124,15 +152,20 @@ public class WebProjectDeploymentServiceImpl
 
 
 
-    // This method is lifted almost verbatim from org.alfresco.web.bean.wcm.DeployWebsiteDialog (which is useless to us since it's tightly coupled to the Web Client).
+    // This method is lifted almost verbatim from org.alfresco.web.bean.wcm.DeployWebsiteDialog (which is useless to us since it's tightly coupled to the JSF Web Client).
     private void deploy(final NodeRef webProjectRef, final String store, final String deployMode, final int versionToDeploy, final String[] deployTo)
     {
         if (logger.isDebugEnabled())
             logger.debug("Requesting deployment of: " + webProjectRef.toString() + ", version " + versionToDeploy + " to servers: " + arrayToString(deployTo));
         
-        // WARNING: the following 2 lines are NOT lifted verbatim from the class mentioned above
-        String  storeRoot  = buildAVMPath(store, JNDIConstants.DIR_DEFAULT_WWW_APPBASE);
-        NodeRef websiteRef = AVMNodeConverter.ToNodeRef(versionToDeploy, storeRoot);
+        // WARNING: the following lines are NOT lifted verbatim from org.alfresco.web.bean.wcm.DeployWebsiteDialog
+        String            storeRoot                    = buildAVMPath(store, JNDIConstants.DIR_DEFAULT_WWW_APPBASE);
+        NodeRef           websiteRef                   = AVMNodeConverter.ToNodeRef(versionToDeploy, storeRoot);
+        NodeService       unprotectedNodeService       = serviceRegistry.getNodeService();
+        PermissionService unprotectedPermissionService = serviceRegistry.getPermissionService();
+        ActionService     actionService                = serviceRegistry.getActionService();
+        AVMService        avmService                   = serviceRegistry.getAVMService();
+        // END WARNING
          
         if (deployTo != null && deployTo.length > 0)
         {
@@ -239,6 +272,30 @@ public class WebProjectDeploymentServiceImpl
         this.updateTestServer = updateTestServer;
     }
 
+    
+    /**
+     * WARNING!  Copied from org.alfresco.repo.avm.util.AVMUtil (which was only added in 3.1SP2 or thereabouts).
+     */
+    private static final char AVM_STORE_SEPARATOR_CHAR = ':';
+    private static final char AVM_PATH_SEPARATOR_CHAR  = '/';
+    private String buildAVMPath(String storeName, String storeRelativePath)
+    {
+        // note: assumes storeRelativePath is not null and does not contain ':', although will add leading slash (if missing)
+        StringBuilder builder = new StringBuilder();
+        builder.append(storeName).append(AVM_STORE_SEPARATOR_CHAR);
+        if ((storeRelativePath.length() == 0) || (storeRelativePath.charAt(0) != AVM_PATH_SEPARATOR_CHAR))
+        {
+            builder.append(AVM_PATH_SEPARATOR_CHAR);
+        }
+        builder.append(storeRelativePath);
+        return builder.toString();
+    }
+    
+
+
+    
+    
+    
 
     private String getStagingStoreId(final NodeRef webProjectRef)
     {
@@ -246,7 +303,7 @@ public class WebProjectDeploymentServiceImpl
         
         if (webProjectRef != null)
         {
-            result = (String)unprotectedNodeService.getProperty(webProjectRef, WCMAppModel.PROP_AVMSTORE);
+            result = (String)serviceRegistry.getNodeService().getProperty(webProjectRef, WCMAppModel.PROP_AVMSTORE);
         }
         
         return(result);
@@ -262,13 +319,13 @@ public class WebProjectDeploymentServiceImpl
             Set<QName> searchTypeQNames = new HashSet<QName>(1);
             searchTypeQNames.add(WCMAppModel.ASSOC_DEPLOYMENTSERVER);
             
-            List<ChildAssociationRef> childAssocRefs = unprotectedNodeService.getChildAssocs(webProjectRef, searchTypeQNames);
+            List<ChildAssociationRef> childAssocRefs = serviceRegistry.getNodeService().getChildAssocs(webProjectRef, searchTypeQNames);
             List<String>              tmpResult      = new ArrayList<String>(childAssocRefs.size());
             
             for (ChildAssociationRef assocRef : childAssocRefs)
             {
                 NodeRef childNode  = assocRef.getChildRef();
-                String  targetType = (String)unprotectedNodeService.getProperty(childNode, WCMAppModel.PROP_DEPLOYSERVERTYPE);
+                String  targetType = (String)serviceRegistry.getNodeService().getProperty(childNode, WCMAppModel.PROP_DEPLOYSERVERTYPE);
                 
                 if (WCMAppModel.CONSTRAINT_LIVESERVER.equals(targetType))
                 {
@@ -316,25 +373,48 @@ public class WebProjectDeploymentServiceImpl
     }
     
     
-    /**
-     * WARNING!  Copied from org.alfresco.repo.avm.util.AVMUtil (which was only added in 3.1SP2 or thereabouts).
-     */
-    private static final char AVM_STORE_SEPARATOR_CHAR = ':';
-    private static final char AVM_PATH_SEPARATOR_CHAR  = '/';
-    private String buildAVMPath(String storeName, String storeRelativePath)
+    private final NodeRef findWebProjectByDNSName(final String dnsName)
     {
-        // note: assumes storeRelativePath is not null and does not contain ':', although will add leading slash (if missing)
-        StringBuilder builder = new StringBuilder();
-        builder.append(storeName).append(AVM_STORE_SEPARATOR_CHAR);
-        if ((storeRelativePath.length() == 0) || (storeRelativePath.charAt(0) != AVM_PATH_SEPARATOR_CHAR))
+        NodeRef result = null;
+        
+        if (dnsName != null)
         {
-            builder.append(AVM_PATH_SEPARATOR_CHAR);
+            // Step 1: find the "Web Projects" space
+            NodeRef  companyHome      = repository.getCompanyHome();
+            FileInfo fi               = null;
+            NodeRef  webProjectsSpace = null;
+            
+            try
+            {
+                fi = serviceRegistry.getFileFolderService().resolveNamePath(companyHome, Arrays.asList("Web Projects"));
+            }
+            catch (FileNotFoundException fnfe)
+            {
+                fi = null;
+            }
+            
+            if (fi != null)
+            {
+                // Step 2: list its children one-by-one, until we either run out or find one where wca:avmstore == dnsName
+                webProjectsSpace = fi.getNodeRef();
+                
+                List<FileInfo> webProjects = serviceRegistry.getFileFolderService().list(webProjectsSpace);
+                
+                for (FileInfo fi2 : webProjects)
+                {
+                    NodeRef webProject = fi2.getNodeRef();
+                    
+                    if (dnsName.equals(serviceRegistry.getNodeService().getProperty(webProject, WCMAppModel.PROP_AVMSTORE)))
+                    {
+                        result = webProject;
+                        break;
+                    }
+                }
+            }
         }
-        builder.append(storeRelativePath);
-        return builder.toString();
+        
+        return(result);
     }
-    
-
     
 
 }

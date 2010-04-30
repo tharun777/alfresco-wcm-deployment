@@ -13,7 +13,7 @@ Targets for the following systems:
 
 (more will likely be added at a later date)
 
-It also contains an Alfresco v3.0+ "timed deployment" feature, which can be
+It also contains an Alfresco v3.1+ "timed deployment" feature, which can be
 configured to deploy the latest snapshot in the staging sandbox of any Web
 Project on a regular schedule.
 

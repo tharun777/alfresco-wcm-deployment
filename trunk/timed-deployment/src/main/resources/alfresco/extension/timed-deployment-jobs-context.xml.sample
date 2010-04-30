@@ -6,14 +6,17 @@
 
   <!--
    *
-   * To configure one or more timed deployment jobs, replace [webProjectDNSName] with a non-whitespace symbolic name for your Web Project
-   * (any value is allowed, but for simplicity the DNS name of your Web Project is recommended), then replace the other configuration
-   * properties (defined in the "jobDataAsMap" property) as follows:
+   * To configure one or more timed deployment jobs, replace [webProjectDNSName] in the bean id with a non-whitespace symbolic name
+   * for your Web Project (any value is allowed, but for simplicity the DNS name of your Web Project is recommended), then replace
+   * the other configuration properties (defined in the "jobDataAsMap" property) as follows:
    *
-   *  - transactionService:     the reference to the Alfresco transaction service. Shouldn't normally be modified.
-   *  - timedDeploymentService: the reference to the underlying timed deployment service. Shouldn't normally be modified.
-   *  - webProjectNodeRef:      the node ref of the Web Project that this job will operate against.
-   *                            You can find this out by looking at the properties of the Web Project in the Explorer UI.
+   *  - transactionService:          the reference to the Alfresco transaction service. Shouldn't normally be modified.
+   *  - webProjectDeploymentService: the reference to the underlying web project deployment service. Shouldn't normally be modified.
+   *  - webProjectNodeRef:           the node ref of the Web Project that this job will operate against.
+   *                                 You can find this out by looking at the properties of the Web Project in the Explorer UI.
+   *  - webProjectDNSName:           the DNS name of the Web Project that this job will operate against.
+   *
+   * Note that only webProjectNodeRef OR webProjectDNSName should be provided.
    *
    * The frequency of the job (ie. how often it runs) can be configured via the cronExpression property.  The allowed values for this
    * property are described in more detail at http://www.opensymphony.com/quartz/wikidocs/CronTriggers%20Tutorial.html.
@@ -28,13 +31,15 @@
         <property name="jobClass" value="org.alfresco.extension.timeddeployment.quartzjobs.TimedDeploymentJob" />
         <property name="jobDataAsMap">
           <map>
-            <entry key="transactionService">
-              <ref bean="transactionService" />
+            <entry key="webProjectDeploymentService">
+              <ref bean="webProjectDeploymentService" />
             </entry>
             <entry key="webProjectDeploymentService">
               <ref bean="extension.webProjectDeploymentService" />
             </entry>
             <entry key="webProjectNodeRef" value="[webProjectNodeRef]" />
+            <!-- OR: -->
+            <entry key="webProjectDNSName" value="[webProjectDNSName]" />
           </map>
         </property>
       </bean>

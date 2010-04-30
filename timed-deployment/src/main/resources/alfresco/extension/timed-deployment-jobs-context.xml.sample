@@ -31,8 +31,8 @@
         <property name="jobClass" value="org.alfresco.extension.timeddeployment.quartzjobs.TimedDeploymentJob" />
         <property name="jobDataAsMap">
           <map>
-            <entry key="webProjectDeploymentService">
-              <ref bean="webProjectDeploymentService" />
+            <entry key="transactionService">
+              <ref bean="transactionService" />
             </entry>
             <entry key="webProjectDeploymentService">
               <ref bean="extension.webProjectDeploymentService" />

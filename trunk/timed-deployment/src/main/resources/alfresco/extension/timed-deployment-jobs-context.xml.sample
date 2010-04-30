@@ -16,7 +16,7 @@
    *                                 You can find this out by looking at the properties of the Web Project in the Explorer UI.
    *  - webProjectDNSName:           the DNS name of the Web Project that this job will operate against.
    *
-   * Note that only webProjectNodeRef OR webProjectDNSName should be provided.
+   * Note that only webProjectNodeRef OR webProjectDNSName should be provided, never both.
    *
    * The frequency of the job (ie. how often it runs) can be configured via the cronExpression property.  The allowed values for this
    * property are described in more detail at http://www.opensymphony.com/quartz/wikidocs/CronTriggers%20Tutorial.html.

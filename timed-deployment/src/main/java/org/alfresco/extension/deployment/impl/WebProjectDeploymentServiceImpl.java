@@ -20,20 +20,17 @@
  * and Open Source Software ("FLOSS") applications as described in Alfresco's 
  * FLOSS exception.  You should have received a copy of the text describing 
  * the FLOSS exception, and it is also available here: 
- * http://www.alfresco.com/legal/licensing"
+ * http://www.alfresco.com/legal/licensing
  */
 
 package org.alfresco.extension.deployment.impl;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -43,15 +40,11 @@ import org.alfresco.repo.avm.AVMNodeConverter;
 import org.alfresco.repo.avm.actions.AVMDeployWebsiteAction;
 //import org.alfresco.repo.avm.util.AVMUtil;   // 3.1SP2+ only
 import org.alfresco.repo.domain.PropertyValue;
-import org.alfresco.repo.model.Repository;
 import org.alfresco.service.ServiceRegistry;
 import org.alfresco.service.cmr.action.Action;
 import org.alfresco.service.cmr.action.ActionService;
 import org.alfresco.service.cmr.avm.AVMService;
 import org.alfresco.service.cmr.dictionary.DataTypeDefinition;
-import org.alfresco.service.cmr.model.FileInfo;
-import org.alfresco.service.cmr.model.FileNotFoundException;
-import org.alfresco.service.cmr.repository.ChildAssociationRef;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.cmr.repository.NodeService;
 import org.alfresco.service.cmr.security.PermissionService;
@@ -60,6 +53,7 @@ import org.alfresco.util.GUID;
 import org.alfresco.wcm.sandbox.SandboxConstants;
 import org.alfresco.config.JNDIConstants;
 import org.alfresco.error.AlfrescoRuntimeException;
+import org.alfresco.extension.WebProjectHelper;
 import org.alfresco.extension.deployment.WebProjectDeploymentService;
 
 
@@ -74,18 +68,18 @@ public class WebProjectDeploymentServiceImpl
 {
     private final Log logger = LogFactory.getLog(WebProjectDeploymentServiceImpl.class);
     
-    private final ServiceRegistry serviceRegistry;
-    private final Repository      repository;
+    private final ServiceRegistry  serviceRegistry;
+    private final WebProjectHelper webProjectHelper;
     
     private boolean updateTestServer = true;   // Not quite sure what the point of this is, but don't want to strip it out
     
     
     
-    public WebProjectDeploymentServiceImpl(final ServiceRegistry serviceRegistry,
-                                           final Repository      repository)
+    public WebProjectDeploymentServiceImpl(final ServiceRegistry  serviceRegistry,
+                                           final WebProjectHelper webProjectHelper)
     {
-        this.serviceRegistry = serviceRegistry;
-        this.repository      = repository;
+        this.serviceRegistry  = serviceRegistry;
+        this.webProjectHelper = webProjectHelper;
     }
             
     
@@ -106,7 +100,7 @@ public class WebProjectDeploymentServiceImpl
     @Override
     public void deploy(String webProjectDNSName, int versionToDeploy)
     {
-        NodeRef webProjectNodeRef = findWebProjectByDNSName(webProjectDNSName);
+        NodeRef webProjectNodeRef = webProjectHelper.findWebProjectByDNSName(webProjectDNSName);
         
         if (webProjectNodeRef != null)
         {
@@ -135,7 +129,7 @@ public class WebProjectDeploymentServiceImpl
     @Override
     public void deploy(NodeRef webProjectRef, int versionToDeploy)
     {
-        String stagingSandboxStoreId = getStagingStoreId(webProjectRef);
+        String stagingSandboxStoreId = webProjectHelper.getStagingStoreId(webProjectRef);
         
         if (versionToDeploy <= 0)
         {
@@ -146,7 +140,7 @@ public class WebProjectDeploymentServiceImpl
                stagingSandboxStoreId,
                WCMAppModel.CONSTRAINT_LIVESERVER,
                versionToDeploy,
-               getAllLiveDeploymentTargets(webProjectRef));
+               webProjectHelper.getAllLiveDeploymentTargets(webProjectRef));
     }
 
 
@@ -159,7 +153,7 @@ public class WebProjectDeploymentServiceImpl
             logger.debug("Requesting deployment of: " + webProjectRef.toString() + ", version " + versionToDeploy + " to servers: " + arrayToString(deployTo));
         
         // WARNING: the following lines are NOT lifted verbatim from org.alfresco.web.bean.wcm.DeployWebsiteDialog
-        String            storeRoot                    = buildAVMPath(store, JNDIConstants.DIR_DEFAULT_WWW_APPBASE);
+        String            storeRoot                    = webProjectHelper.buildAVMPath(store, JNDIConstants.DIR_DEFAULT_WWW_APPBASE);
         NodeRef           websiteRef                   = AVMNodeConverter.ToNodeRef(versionToDeploy, storeRoot);
         NodeService       unprotectedNodeService       = serviceRegistry.getNodeService();
         PermissionService unprotectedPermissionService = serviceRegistry.getPermissionService();
@@ -273,80 +267,8 @@ public class WebProjectDeploymentServiceImpl
     }
 
     
-    /**
-     * WARNING!  Copied from org.alfresco.repo.avm.util.AVMUtil (which was only added in 3.1SP2 or thereabouts).
-     */
-    private static final char AVM_STORE_SEPARATOR_CHAR = ':';
-    private static final char AVM_PATH_SEPARATOR_CHAR  = '/';
-    private String buildAVMPath(String storeName, String storeRelativePath)
-    {
-        // note: assumes storeRelativePath is not null and does not contain ':', although will add leading slash (if missing)
-        StringBuilder builder = new StringBuilder();
-        builder.append(storeName).append(AVM_STORE_SEPARATOR_CHAR);
-        if ((storeRelativePath.length() == 0) || (storeRelativePath.charAt(0) != AVM_PATH_SEPARATOR_CHAR))
-        {
-            builder.append(AVM_PATH_SEPARATOR_CHAR);
-        }
-        builder.append(storeRelativePath);
-        return builder.toString();
-    }
     
 
-
-    
-    
-    
-
-    private String getStagingStoreId(final NodeRef webProjectRef)
-    {
-        String result = null;
-        
-        if (webProjectRef != null)
-        {
-            result = (String)serviceRegistry.getNodeService().getProperty(webProjectRef, WCMAppModel.PROP_AVMSTORE);
-        }
-        
-        return(result);
-    }
-    
-    
-    private String[] getAllLiveDeploymentTargets(final NodeRef webProjectRef)
-    {
-        String[] result = null;
-        
-        if (webProjectRef != null)
-        {
-            Set<QName> searchTypeQNames = new HashSet<QName>(1);
-            searchTypeQNames.add(WCMAppModel.ASSOC_DEPLOYMENTSERVER);
-            
-            List<ChildAssociationRef> childAssocRefs = serviceRegistry.getNodeService().getChildAssocs(webProjectRef, searchTypeQNames);
-            List<String>              tmpResult      = new ArrayList<String>(childAssocRefs.size());
-            
-            for (ChildAssociationRef assocRef : childAssocRefs)
-            {
-                NodeRef childNode  = assocRef.getChildRef();
-                String  targetType = (String)serviceRegistry.getNodeService().getProperty(childNode, WCMAppModel.PROP_DEPLOYSERVERTYPE);
-                
-                if (WCMAppModel.CONSTRAINT_LIVESERVER.equals(targetType))
-                {
-                    tmpResult.add(assocRef.getChildRef().toString());
-                }
-            }
-            
-            result = new String[tmpResult.size()];
-            int i = 0;
-            
-            for (String childNodeRefStr : tmpResult)
-            {
-                result[i] = childNodeRefStr;
-                i++;
-            }
-        }
-        
-        return(result);
-    }
-    
-    
     //####TODO: pretty sure this exists in commons-lang somewhere - need to look for it
     private String arrayToString(final String[] values)
     {
@@ -373,48 +295,4 @@ public class WebProjectDeploymentServiceImpl
     }
     
     
-    private final NodeRef findWebProjectByDNSName(final String dnsName)
-    {
-        NodeRef result = null;
-        
-        if (dnsName != null)
-        {
-            // Step 1: find the "Web Projects" space
-            NodeRef  companyHome      = repository.getCompanyHome();
-            FileInfo fi               = null;
-            NodeRef  webProjectsSpace = null;
-            
-            try
-            {
-                fi = serviceRegistry.getFileFolderService().resolveNamePath(companyHome, Arrays.asList("Web Projects"));
-            }
-            catch (FileNotFoundException fnfe)
-            {
-                fi = null;
-            }
-            
-            if (fi != null)
-            {
-                // Step 2: list its children one-by-one, until we either run out or find one where wca:avmstore == dnsName
-                webProjectsSpace = fi.getNodeRef();
-                
-                List<FileInfo> webProjects = serviceRegistry.getFileFolderService().list(webProjectsSpace);
-                
-                for (FileInfo fi2 : webProjects)
-                {
-                    NodeRef webProject = fi2.getNodeRef();
-                    
-                    if (dnsName.equals(serviceRegistry.getNodeService().getProperty(webProject, WCMAppModel.PROP_AVMSTORE)))
-                    {
-                        result = webProject;
-                        break;
-                    }
-                }
-            }
-        }
-        
-        return(result);
-    }
-    
-
 }

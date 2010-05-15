@@ -4,11 +4,27 @@
        xmlns:lang="http://www.springframework.org/schema/lang"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.0.xsd http://www.springframework.org/schema/lang http://www.springframework.org/schema/lang/spring-lang-2.0.xsd">
 
-  <!-- The core implementation bean that actually performs Web Project deployments.  This configuration does not normally need to be modified. -->
+  <!-- Note: This configuration file does not normally need to be modified. --> 
+
+  <!-- The core implementation bean that performs Web Project deployments. -->
   <bean id="extension.webProjectDeploymentService"
         class="org.alfresco.extension.deployment.impl.WebProjectDeploymentServiceImpl">
     <constructor-arg index="0" ref="ServiceRegistry" />
-    <constructor-arg index="1" ref="repositoryHelper" />
+    <constructor-arg index="1" ref="extension.webProjectHelper" />
+  </bean>
+  
+  <!-- The implementation bean that performs Web Project deployment report cleanup. -->
+  <bean id="extension.webProjectDeploymentReportCleanupService"
+        class="org.alfresco.extension.deployment.reports.impl.DeploymentReportCleanupServiceImpl">
+    <constructor-arg index="0" ref="ServiceRegistry" />
+    <constructor-arg index="1" ref="extension.webProjectHelper" />
   </bean>
 
+  <!-- Helper bean for Web Projects. -->
+  <bean id="extension.webProjectHelper"
+        class="org.alfresco.extension.WebProjectHelper">
+    <constructor-arg index="0" ref="ServiceRegistry" />
+    <constructor-arg index="1" ref="repositoryHelper" />
+  </bean>
+    
 </beans>

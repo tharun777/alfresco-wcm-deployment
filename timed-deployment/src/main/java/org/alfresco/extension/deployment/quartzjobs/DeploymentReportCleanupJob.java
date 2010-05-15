@@ -23,7 +23,7 @@
  * http://www.alfresco.com/legal/licensing"
  */
 
-package org.alfresco.extension.timeddeployment.quartzjobs;
+package org.alfresco.extension.deployment.quartzjobs;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -34,32 +34,33 @@ import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
 
 import org.alfresco.error.AlfrescoRuntimeException;
-import org.alfresco.extension.deployment.WebProjectDeploymentService;
 import org.alfresco.repo.security.authentication.AuthenticationUtil;
 import org.alfresco.repo.transaction.RetryingTransactionHelper.RetryingTransactionCallback;
 import org.alfresco.service.cmr.repository.NodeRef;
 import org.alfresco.service.transaction.TransactionService;
 import org.alfresco.util.CronTriggerBean;
 
+import org.alfresco.extension.deployment.reports.DeploymentReportCleanupService;
+
 
 /**
- * Quartz job that deploys the latest version of a given AVM store on a periodic basis.
+ * Quartz job that cleans up all "null" deployment reports for a given Web Project.
  * 
  * In order to function, one (or more) instances of this class need to be configured in a custom Spring *-context.xml file in alfresco/extension.
  * Configuration is as follows:
  * 
  * <code>
- *  &lt;bean id="wcmTimedDeploymentTrigger.[webProjectDNSName]" class="org.alfresco.util.CronTriggerBean"&gt;
+ *  &lt;bean id="wcmDeploymentReportCleanupTrigger.[webProjectDNSName]" class="org.alfresco.util.CronTriggerBean"&gt;
  *    &lt;property name="jobDetail"&gt;
  *      &lt;bean class="org.springframework.scheduling.quartz.JobDetailBean"&gt;
- *        &lt;property name="jobClass" value="org.alfresco.extension.timeddeployment.quartzjobs.TimedDeploymentJob" /&gt;
+ *        &lt;property name="jobClass" value="org.alfresco.extension.deployment.quartzjobs.DeploymentReportCleanupJob" /&gt;
  *        &lt;property name="jobDataAsMap"&gt;
  *          &lt;map&gt;
  *            &lt;entry key="transactionService"&gt;
  *              &lt;ref bean="transactionService" /&gt;
  *            &lt;/entry&gt;
- *            &lt;entry key="webProjectDeploymentService"&gt;
- *              &lt;ref bean="extension.webProjectDeploymentService" /&gt;
+ *            &lt;entry key="webProjectDeploymentReportCleanupService"&gt;
+ *              &lt;ref bean="extension.webProjectDeploymentReportCleanupService" /&gt;
  *            &lt;/entry&gt;
  *            &lt;entry key="webProjectNodeRef" value="[webProjectNodeRef]" /&gt;  &lt;!-- Node Ref of Web Project DM Space --&gt;
  *            &lt;!-- OR --&gt;
@@ -69,15 +70,15 @@ import org.alfresco.util.CronTriggerBean;
  *      &lt;/bean&gt;
  *    &lt;/property&gt;
  *    &lt;property name="scheduler" ref="schedulerFactory" /&gt;
- *    &lt;!-- trigger at 3:30am each day --&gt;
- *    &lt;property name="cronExpression" value="0 30 17 * * ?" /&gt;
+      &lt;!-- trigger every 10 minutes --&gt;
+      &lt;property name="cronExpression" value="0 0/10 * * * ?" /&gt;
  *  &lt;/bean&gt;
  *  </code>
  *  
  *  The configuration properties for this bean (defined in the "jobDataAsMap" property) are as follows: 
  *  <ul>
  *    <li><code>transactionService</code>: the reference to the Alfresco transaction service. Shouldn't normally be modified.</li>
- *    <li><code>webProjectDeploymentService</code>: the reference to the underlying timed deployment service. Shouldn't normally be modified.</li>
+ *    <li><code>webProjectDeploymentReportCleanupService</code>: the reference to the underlying deployment report cleanup service. Shouldn't normally be modified.</li>
  *    <li><code>webProjectNodeRef</code>: the node ref of the Web Project that this job will operate against.
  *        You can find this out by looking at the properties of the Web Project in the Explorer UI.</li>
  *    <li><code>webProjectDNSName</code>: the DNS name of the Web Project that this job will operate against.</li>
@@ -88,28 +89,28 @@ import org.alfresco.util.CronTriggerBean;
  *  The frequency of the job (ie. how often it runs) can be configured via the <code>cronExpression</code> property.  This is described in more detail in
  *  the <a href="http://www.opensymphony.com/quartz/wikidocs/CronTriggers%20Tutorial.html">Quartz documentation</a>.
  *   
- *  Finally, you may configure multiple instances of this bean (with different ids) if you wish to configure timed deployment for multiple Web
+ *  Finally, you may configure multiple instances of this bean (with different ids) if you wish to configure deployment report cleanup for multiple Web
  *  Projects.  In this case you may also configure different schedules for each of those Web Projects.
  *
  * @author Peter Monks (peter.monks@alfresco.com)
  * @version $Id$
  */
-public class TimedDeploymentJob
+public class DeploymentReportCleanupJob
     extends CronTriggerBean
     implements Job
 {
-    private static Log log = LogFactory.getLog(TimedDeploymentJob.class);
+    private static Log log = LogFactory.getLog(DeploymentReportCleanupJob.class);
     
-    private final static String JOB_DATA_PARAMETER_NAME_TRANSACTION_SERVICE            = "transactionService";
-    private final static String JOB_DATA_PARAMETER_NAME_WEB_PROJECT_DEPLOYMENT_SERVICE = "webProjectDeploymentService";
-    private final static String JOB_DATA_PARAMETER_NAME_WEB_PROJECT_NODE_REF           = "webProjectNodeRef";
-    private final static String JOB_DATA_PARAMETER_NAME_WEB_PROJECT_DNS_NAME           = "webProjectDNSName";
+    private final static String JOB_DATA_PARAMETER_NAME_TRANSACTION_SERVICE               = "transactionService";
+    private final static String JOB_DATA_PARAMETER_NAME_DEPLOYMENT_REPORT_CLEANUP_SERVICE = "webProjectDeploymentReportCleanupService";
+    private final static String JOB_DATA_PARAMETER_NAME_WEB_PROJECT_NODE_REF              = "webProjectNodeRef";
+    private final static String JOB_DATA_PARAMETER_NAME_WEB_PROJECT_DNS_NAME              = "webProjectDNSName";
     
-    private boolean                     initialised                 = false;
-    private TransactionService          transactionService          = null;
-    private WebProjectDeploymentService webProjectDeploymentService = null;
-    private NodeRef                     webProjectNodeRef           = null;
-    private String                      webProjectDNSName           = null;
+    private boolean                        initialised                    = false;
+    private TransactionService             transactionService             = null;
+    private DeploymentReportCleanupService deploymentReportCleanupService = null;
+    private NodeRef                        webProjectNodeRef              = null;
+    private String                         webProjectDNSName              = null;
     
 
     /**
@@ -128,41 +129,41 @@ public class TimedDeploymentJob
             }
         }
         
-        // Run the deployment logic as a system user and within a retrying transaction.
-        AuthenticationUtil.RunAsWork<Object> runAsDeploymentWork = new AuthenticationUtil.RunAsWork<Object>()
+        // Run the deployment report cleanup logic as a system user and within a retrying transaction.
+        AuthenticationUtil.RunAsWork<Object> runAsDeploymentReportCleanupWork = new AuthenticationUtil.RunAsWork<Object>()
         {
             public Object doWork()
                 throws Exception
             {
-                RetryingTransactionCallback<Object> retryingDeploymentWork = new RetryingTransactionCallback<Object>()
+                RetryingTransactionCallback<Object> retryingDeploymentReportCleanupWork = new RetryingTransactionCallback<Object>()
                 {
                     public Object execute()
                         throws Exception
                     {
                         if (webProjectNodeRef != null)
                         {
-                            webProjectDeploymentService.deploy(webProjectNodeRef);
+                            deploymentReportCleanupService.deleteNullDeploymentReports(webProjectNodeRef);
                         }
                         else
                         {
-                            webProjectDeploymentService.deploy(webProjectDNSName);
+                            deploymentReportCleanupService.deleteNullDeploymentReports(webProjectDNSName);
                         }
                         
                         return null;
                      }
                 };
-                return(transactionService.getRetryingTransactionHelper().doInTransaction(retryingDeploymentWork));
+                return(transactionService.getRetryingTransactionHelper().doInTransaction(retryingDeploymentReportCleanupWork));
             }
         };
         
         try
         {
-            AuthenticationUtil.runAs(runAsDeploymentWork, AuthenticationUtil.SYSTEM_USER_NAME);
+            AuthenticationUtil.runAs(runAsDeploymentReportCleanupWork, AuthenticationUtil.SYSTEM_USER_NAME);
         }
         catch (Exception e)
         {
             // Log the error and swallow it - better we handle it than Quartz
-            log.error("Unexpected error while executing timed deployment job: " + e.getMessage(), e);
+            log.error("Unexpected error while executing deployment report cleanup job: " + e.getMessage(), e);
         }
     }
     
@@ -181,11 +182,11 @@ public class TimedDeploymentJob
         // Body
         
         // Pull state from the job configuration data.
-        JobDataMap jobData                        = context.getJobDetail().getJobDataMap();
-        Object     transactionServiceObj          = jobData.get(JOB_DATA_PARAMETER_NAME_TRANSACTION_SERVICE);
-        Object     webProjectDeploymentServiceObj = jobData.get(JOB_DATA_PARAMETER_NAME_WEB_PROJECT_DEPLOYMENT_SERVICE);
-        Object     webProjectNodeRefObj           = jobData.get(JOB_DATA_PARAMETER_NAME_WEB_PROJECT_NODE_REF);
-        Object     webProjectDNSNameObj           = jobData.get(JOB_DATA_PARAMETER_NAME_WEB_PROJECT_DNS_NAME);
+        JobDataMap jobData                           = context.getJobDetail().getJobDataMap();
+        Object     transactionServiceObj             = jobData.get(JOB_DATA_PARAMETER_NAME_TRANSACTION_SERVICE);
+        Object     deploymentReportCleanupServiceObj = jobData.get(JOB_DATA_PARAMETER_NAME_DEPLOYMENT_REPORT_CLEANUP_SERVICE);
+        Object     webProjectNodeRefObj              = jobData.get(JOB_DATA_PARAMETER_NAME_WEB_PROJECT_NODE_REF);
+        Object     webProjectDNSNameObj              = jobData.get(JOB_DATA_PARAMETER_NAME_WEB_PROJECT_DNS_NAME);
 
         
         // Service Registry
@@ -199,13 +200,13 @@ public class TimedDeploymentJob
         
         
         // Timed Deployment Service
-        if (webProjectDeploymentServiceObj == null ||
-            !(webProjectDeploymentServiceObj instanceof WebProjectDeploymentService))
+        if (deploymentReportCleanupServiceObj == null ||
+            !(deploymentReportCleanupServiceObj instanceof DeploymentReportCleanupService))
         {
-            throw new AlfrescoRuntimeException(JOB_DATA_PARAMETER_NAME_WEB_PROJECT_DEPLOYMENT_SERVICE + " must be provided and must be a reference to an instance of org.alfresco.extension.timeddeployment.TimedDeploymentService.");
+            throw new AlfrescoRuntimeException(JOB_DATA_PARAMETER_NAME_DEPLOYMENT_REPORT_CLEANUP_SERVICE + " must be provided and must be a reference to an instance of org.alfresco.extension.deployment.reports.DeploymentReportCleanupService.");
         }
         
-        this.webProjectDeploymentService = (WebProjectDeploymentService)webProjectDeploymentServiceObj;
+        this.deploymentReportCleanupService = (DeploymentReportCleanupService)deploymentReportCleanupServiceObj;
 
         
         // Web Project, either by NodeRef or DNS Name

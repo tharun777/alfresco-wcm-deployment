@@ -20,52 +20,34 @@
  * and Open Source Software ("FLOSS") applications as described in Alfresco's 
  * FLOSS exception.  You should have received a copy of the text describing 
  * the FLOSS exception, and it is also available here: 
- * http://www.alfresco.com/legal/licensing"
+ * http://www.alfresco.com/legal/licensing
  */
 
-package org.alfresco.extension.deployment;
+package org.alfresco.extension.deployment.reports;
 
 import org.alfresco.service.cmr.repository.NodeRef;
 
 
 /**
- * This interface defines an abstraction for deploying Web Projects.
+ * This interface defines an abstraction for cleaning up deployment reports in a Web Project.
  *
  * @author Peter Monks (pmonks@alfresco.com)
  *
  */
-public interface WebProjectDeploymentService
+public interface DeploymentReportCleanupService
 {
     /**
-     * Deploys the latest version (snapshot) of the given Web Project's staging sandbox to all live deployment targets.
+     * Deletes all "null" deployment reports for the given Web Project.  A "null" deployment report is one where nothing happened (ie. all targets were already up to date).
      *  
      * @param webProjectDNSName The DNS Name of the Web Project <i>(must not be null, empty or blank)</i>.
      */
-    void deploy(final String webProjectDNSName);
-
-
-    /**
-     * Deploys the given version (snapshot) of the given Web Project's staging sandbox to all live deployment targets.
-     *  
-     * @param webProjectDNSName The DNS Name of the Web Project <i>(must not be null, empty or blank)</i>.
-     * @param versionToDeploy The version to deploy <i>(&lt;= 0 means deploy the latest version)</i>.
-     */
-    void deploy(final String webProjectDNSName, final int versionToDeploy);
+    void deleteNullDeploymentReports(final String webProjectDnsName);
     
     
     /**
-     * Deploys the latest version (snapshot) of the given Web Project's staging sandbox to all live deployment targets.
+     * Deletes all "null" deployment reports for the given Web Project.  A "null" deployment report is one where nothing happened (ie. all targets were already up to date).
      *  
      * @param webProjectRef The Node Ref of the DM space representing the Web Project <i>(must not be null)</i>.
      */
-    void deploy(final NodeRef webProjectRef);
-
-
-    /**
-     * Deploys the given version (snapshot) of the given Web Project's staging sandbox to all live deployment targets.
-     *  
-     * @param webProjectRef   The Node Ref of the DM space representing the Web Project <i>(must not be null)</i>.
-     * @param versionToDeploy The version to deploy <i>(&lt;= 0 means deploy the latest version)</i>.
-     */
-    void deploy(final NodeRef webProjectRef, final int versionToDeploy);
+    void deleteNullDeploymentReports(final NodeRef webProjectNodeRef);
 }

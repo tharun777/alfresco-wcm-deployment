@@ -50,7 +50,7 @@ import org.alfresco.extension.deployment.reports.DeploymentReportCleanupService;
  * Configuration is as follows:
  * 
  * <code>
- *  &lt;bean id="wcmDeploymentReportCleanupTrigger.[webProjectDNSName]" class="org.alfresco.util.CronTriggerBean"&gt;
+ *  &lt;bean id="wcmPruneNullDeploymentReportsTrigger.[webProjectDNSName]" class="org.alfresco.util.CronTriggerBean"&gt;
  *    &lt;property name="jobDetail"&gt;
  *      &lt;bean class="org.springframework.scheduling.quartz.JobDetailBean"&gt;
  *        &lt;property name="jobClass" value="org.alfresco.extension.deployment.quartzjobs.DeploymentReportCleanupJob" /&gt;
@@ -65,6 +65,7 @@ import org.alfresco.extension.deployment.reports.DeploymentReportCleanupService;
  *            &lt;entry key="webProjectNodeRef" value="[webProjectNodeRef]" /&gt;  &lt;!-- Node Ref of Web Project DM Space --&gt;
  *            &lt;!-- OR --&gt;
  *            &lt;entry key="webProjectDNSName" value="[webProjectDNSName]" /&gt;  &lt;!-- DNS Name of Web Project --&gt;
+ *            &lt;entry key="maxReportsToPrunePerBatch" value="20" /&gt;  &lt;!-- (optional) the maximum number of reports to prune in a single run --&gt;
  *          &lt;/map&gt;
  *        &lt;/property&gt;
  *      &lt;/bean&gt;
@@ -82,6 +83,7 @@ import org.alfresco.extension.deployment.reports.DeploymentReportCleanupService;
  *    <li><code>webProjectNodeRef</code>: the node ref of the Web Project that this job will operate against.
  *        You can find this out by looking at the properties of the Web Project in the Explorer UI.</li>
  *    <li><code>webProjectDNSName</code>: the DNS name of the Web Project that this job will operate against.</li>
+ *    <li><code>maxReportsToPrunePerBatch</code>: (optional) the maximum number of deployment reports to prune in a single run (default is 100).</li>
  *  </ul>
  *  
  *  Note that only webProjectNodeRef OR webProjectDNSName should be provided.
@@ -89,7 +91,7 @@ import org.alfresco.extension.deployment.reports.DeploymentReportCleanupService;
  *  The frequency of the job (ie. how often it runs) can be configured via the <code>cronExpression</code> property.  This is described in more detail in
  *  the <a href="http://www.opensymphony.com/quartz/wikidocs/CronTriggers%20Tutorial.html">Quartz documentation</a>.
  *   
- *  Finally, you may configure multiple instances of this bean (with different ids) if you wish to configure deployment report cleanup for multiple Web
+ *  Finally, you may configure multiple instances of this bean (with different ids) if you wish to configure pruning for multiple Web
  *  Projects.  In this case you may also configure different schedules for each of those Web Projects.
  *
  * @author Peter Monks (peter.monks@alfresco.com)
@@ -105,6 +107,7 @@ public class DeploymentReportCleanupJob
     private final static String JOB_DATA_PARAMETER_NAME_DEPLOYMENT_REPORT_CLEANUP_SERVICE = "webProjectDeploymentReportCleanupService";
     private final static String JOB_DATA_PARAMETER_NAME_WEB_PROJECT_NODE_REF              = "webProjectNodeRef";
     private final static String JOB_DATA_PARAMETER_NAME_WEB_PROJECT_DNS_NAME              = "webProjectDNSName";
+    private final static String JOB_DATA_PARAMETER_NAME_MAX_REPORTS_TO_PRUNE_PER_BATCH    = "maxReportsToPrunePerBatch";
     
     private boolean                        initialised                    = false;
     private TransactionService             transactionService             = null;
@@ -187,6 +190,7 @@ public class DeploymentReportCleanupJob
         Object     deploymentReportCleanupServiceObj = jobData.get(JOB_DATA_PARAMETER_NAME_DEPLOYMENT_REPORT_CLEANUP_SERVICE);
         Object     webProjectNodeRefObj              = jobData.get(JOB_DATA_PARAMETER_NAME_WEB_PROJECT_NODE_REF);
         Object     webProjectDNSNameObj              = jobData.get(JOB_DATA_PARAMETER_NAME_WEB_PROJECT_DNS_NAME);
+        Object     maxReportsToPrunePerBatchObj      = jobData.get(JOB_DATA_PARAMETER_NAME_MAX_REPORTS_TO_PRUNE_PER_BATCH);
 
         
         // Service Registry
@@ -225,6 +229,26 @@ public class DeploymentReportCleanupJob
         if (webProjectDNSNameObj != null)
         {
             this.webProjectDNSName = (String)webProjectDNSNameObj;
+        }
+        
+        
+        // Max reports to prune per batch
+        if (maxReportsToPrunePerBatchObj != null &&
+            maxReportsToPrunePerBatchObj instanceof String)
+        {
+            int maxReportsToPrunePerBatch = -1;
+            
+            try
+            {
+                maxReportsToPrunePerBatch = Integer.valueOf((String)maxReportsToPrunePerBatchObj);
+                
+                this.deploymentReportCleanupService.setMaxReportsToPrunePerBatch(maxReportsToPrunePerBatch);
+            }
+            catch (NumberFormatException nfe)
+            {
+                // Swallow and move on
+                log.warn("Unable to parse " + JOB_DATA_PARAMETER_NAME_MAX_REPORTS_TO_PRUNE_PER_BATCH + " value '" + (String)maxReportsToPrunePerBatchObj + "' - reverting to default.");
+            }
         }
     }
     

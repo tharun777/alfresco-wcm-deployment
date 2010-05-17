@@ -37,6 +37,12 @@ import org.alfresco.service.cmr.repository.NodeRef;
 public interface DeploymentReportCleanupService
 {
     /**
+     * @param maxReportsToPrunePerBatch The maximum number of reports to prune in a single batch (execution of the timed job).
+     */
+    void setMaxReportsToPrunePerBatch(final int maxReportsToPrunePerBatch);
+    
+    
+    /**
      * Deletes all "null" deployment reports for the given Web Project.  A "null" deployment report is one where nothing happened (ie. all targets were already up to date).
      *  
      * @param webProjectDNSName The DNS Name of the Web Project <i>(must not be null, empty or blank)</i>.

@@ -14,6 +14,9 @@ Peter Monks (reverse sknompATocserflaDOTmoc)
 
 Release History
 ---------------
+v0.4 released 2010-05-17
+     Added "prune 'null' deployment reports" job.
+
 v0.3 released 2010-05-08
      First public release.
 
@@ -21,7 +24,7 @@ v0.3 released 2010-05-08
 Pre-requisites
 --------------
 Alfresco 3.1 or better for the timed deployment job (tested on Alfresco
-Enterprise 3.1SP2)
+Enterprise 3.1SP2).
 
 
 Installation
@@ -37,67 +40,122 @@ Create a file in ${ALFRESCO_HOME}/tomcat/shared/classes/alfresco/extension
 with a file name of "custom-timed-deployment-context.xml" and the following
 contents:
 
-	<?xml version='1.0' encoding='UTF-8'?>
-	<beans xmlns="http://www.springframework.org/schema/beans"
-	       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	       xmlns:lang="http://www.springframework.org/schema/lang"
-	       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.0.xsd http://www.springframework.org/schema/lang http://www.springframework.org/schema/lang/spring-lang-2.0.xsd">
+    <?xml version='1.0' encoding='UTF-8'?>
+    <beans xmlns="http://www.springframework.org/schema/beans"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:lang="http://www.springframework.org/schema/lang"
+           xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.0.xsd http://www.springframework.org/schema/lang http://www.springframework.org/schema/lang/spring-lang-2.0.xsd">
 
-	  <!--
-	   *
-	   * To configure one or more timed deployment jobs, replace [webProjectDNSName] with a non-whitespace symbolic name for your Web Project
-	   * (any value is allowed, but for simplicity the DNS name of your Web Project is recommended), then replace the other configuration
-	   * properties (defined in the "jobDataAsMap" property) as follows:
-	   *
-	   *  - transactionService:     the reference to the Alfresco transaction service. Shouldn't normally be modified.
-	   *  - timedDeploymentService: the reference to the underlying timed deployment service. Shouldn't normally be modified.
-	   *  - webProjectNodeRef:      the node ref of the Web Project that this job will operate against.
-	   *                            You can find this out by looking at the properties of the Web Project DM Space in the Explorer UI.
-	   *  - webProjectDNSName:      the DNS name of the Web Project that this job will operate against.
-	   *
-	   * Note that only webProjectNodeRef OR webProjectDNSName should be provided, never both.
-	   *
-	   * The frequency of the job (ie. how often it runs) can be configured via the cronExpression property.  The allowed values for this
-	   * property are described in more detail at http://www.opensymphony.com/quartz/wikidocs/CronTriggers%20Tutorial.html.
-	   *
-	   * Finally, you may configure multiple instances of this bean (with different ids) if you wish to configure timed deployment for multiple Web
-	   * Projects.  In this case you may also configure different schedules for each of those Web Projects.
-	   *
-	  -->
-	  <bean id="wcmTimedDeploymentTrigger.[webProjectDNSName]" class="org.alfresco.util.CronTriggerBean">
-	    <property name="jobDetail">
-	      <bean class="org.springframework.scheduling.quartz.JobDetailBean">
-	        <property name="jobClass" value="org.alfresco.extension.timeddeployment.quartzjobs.TimedDeploymentJob" />
-	        <property name="jobDataAsMap">
-	          <map>
-	            <entry key="transactionService">
-	              <ref bean="transactionService" />
-	            </entry>
-	            <entry key="webProjectDeploymentService">
-	              <ref bean="extension.webProjectDeploymentService" />
-	            </entry>
-	<!--            <entry key="webProjectNodeRef" value="[webProjectNodeRef]" /> -->
-	<!-- For example:
-	            <entry key="webProjectNodeRef" value="workspace://SpacesStore/da81cf94-ec37-4418-9ca1-74c1b94d5661" />
-	-->
-	            <entry key="webProjectDNSName" value="[webProjectDNSName]" />
-	<!-- For example:
-	            <entry key="webProjectDNSName" value="test" />
-	-->
-	          </map>
-	        </property>
-	      </bean>
-	    </property>
-	    <property name="scheduler" ref="schedulerFactory" />
-	    <!-- trigger every 10 minutes - change as desired -->
-	    <property name="cronExpression" value="0 0/10 * * * ?" />
-	  </bean>
+      <!--
+       * TIMED DEPLOYMENT JOB(S)
+       *
+       * To configure one or more timed deployment jobs, replace [webProjectDNSName] with a non-whitespace symbolic name for your Web Project
+       * (any value is allowed, but for simplicity the DNS name of your Web Project is recommended), then replace the other configuration
+       * properties (defined in the "jobDataAsMap" property) as follows:
+       *
+       *  - transactionService:     the reference to the Alfresco transaction service. Shouldn't normally be modified.
+       *  - timedDeploymentService: the reference to the underlying timed deployment service. Shouldn't normally be modified.
+       *  - webProjectNodeRef:      the node ref of the Web Project that this job will operate against.
+       *                            You can find this out by looking at the properties of the Web Project DM Space in the Explorer UI.
+       *  - webProjectDNSName:      the DNS name of the Web Project that this job will operate against.
+       *
+       * Note that only webProjectNodeRef OR webProjectDNSName should be provided, never both.
+       *
+       * The frequency of the job (ie. how often it runs) can be configured via the cronExpression property.  The allowed values for this
+       * property are described in more detail at http://www.opensymphony.com/quartz/wikidocs/CronTriggers%20Tutorial.html.
+       *
+       * Finally, you may configure multiple instances of this bean (with different ids) if you wish to configure timed deployment for multiple Web
+       * Projects.  In this case you may also configure different schedules for each of those Web Projects.
+       *
+      -->
+      <bean id="wcmTimedDeploymentTrigger.[webProjectDNSName]" class="org.alfresco.util.CronTriggerBean">
+        <property name="jobDetail">
+          <bean class="org.springframework.scheduling.quartz.JobDetailBean">
+            <property name="jobClass" value="org.alfresco.extension.timeddeployment.quartzjobs.TimedDeploymentJob" />
+            <property name="jobDataAsMap">
+              <map>
+                <entry key="transactionService">
+                  <ref bean="transactionService" />
+                </entry>
+                <entry key="webProjectDeploymentService">
+                  <ref bean="extension.webProjectDeploymentService" />
+                </entry>
+    <!--            <entry key="webProjectNodeRef" value="[webProjectNodeRef]" /> -->
+    <!-- For example: -->
+                <entry key="webProjectNodeRef" value="workspace://SpacesStore/da81cf94-ec37-4418-9ca1-74c1b94d5661" />
+    <!-- OR: -->
+    <!--            <entry key="webProjectDNSName" value="[webProjectDNSName]" /> -->
+    <!-- For example: -->
+                <entry key="webProjectDNSName" value="test" />
+              </map>
+            </property>
+          </bean>
+        </property>
+        <property name="scheduler" ref="schedulerFactory" />
+        <!-- trigger every 10 minutes - change as desired -->
+        <property name="cronExpression" value="0 0/10 * * * ?" />
+      </bean>
+
+
+      <!--
+       * DEPLOYMENT REPORT CLEANUP JOB(S)
+       *
+       * To configure one or more deployment report cleanup jobs, replace [webProjectDNSName] in the bean id with a non-whitespace symbolic name
+       * for your Web Project (any value is allowed, but for simplicity the DNS name of your Web Project is recommended), then replace
+       * the other configuration properties (defined in the "jobDataAsMap" property) as follows:
+       *
+       *  - transactionService:                       the reference to the Alfresco transaction service. Shouldn't normally be modified.
+       *  - webProjectDeploymentReportCleanupService: the reference to the underlying web project deployment report cleanup service. Shouldn't normally be modified.
+       *  - webProjectNodeRef:                        the node ref of the Web Project that this job will operate against.
+       *                                              You can find this out by looking at the properties of the Web Project in the Explorer UI.
+       *  - webProjectDNSName:                        the DNS name of the Web Project that this job will operate against.
+       *  - maxReportsToPrunePerBatch:                (optional) the maximum number of deployment reports to prune in a single run (default is 100).
+       *
+       * Note that only webProjectNodeRef OR webProjectDNSName should be provided, never both.
+       *
+       * The frequency of the job (ie. how often it runs) can be configured via the cronExpression property.  The allowed values for this
+       * property are described in more detail at http://www.opensymphony.com/quartz/wikidocs/CronTriggers%20Tutorial.html.
+       *
+       * Finally, you may configure multiple instances of this bean (with different ids) if you wish to configure pruning for multiple Web
+       * Projects.  In this case you may also configure different schedules for each of those Web Projects.
+       *
+      -->
+      <bean id="wcmPruneNullDeploymentReportsTrigger.[webProjectDNSName]" class="org.alfresco.util.CronTriggerBean">
+        <property name="jobDetail">
+          <bean class="org.springframework.scheduling.quartz.JobDetailBean">
+            <property name="jobClass" value="org.alfresco.extension.deployment.quartzjobs.DeploymentReportCleanupJob" />
+            <property name="jobDataAsMap">
+              <map>
+                <entry key="transactionService">
+                  <ref bean="transactionService" />
+                </entry>
+                <entry key="webProjectDeploymentReportCleanupService">
+                  <ref bean="extension.webProjectDeploymentReportCleanupService" />
+                </entry>
+    <!--            <entry key="webProjectNodeRef" value="[webProjectNodeRef]" /> -->
+    <!-- For example: -->
+                <entry key="webProjectNodeRef" value="workspace://SpacesStore/da81cf94-ec37-4418-9ca1-74c1b94d5661" />
+    <!-- OR: -->
+    <!--            <entry key="webProjectDNSName" value="[webProjectDNSName]" /> -->
+    <!-- For example: -->
+                <entry key="webProjectDNSName" value="test" />
+    <!--            <entry key="maxReportsToPrunePerBatch" value="[maxReportsToPrunePerBatch]" /> -->
+    <!-- For example: -->
+                <entry key="maxReportsToPrunePerBatch" value="20" />
+              </map>
+            </property>
+          </bean>
+        </property>
+        <property name="scheduler" ref="schedulerFactory" />
+        <!-- trigger every 10 minutes (offset by 5 minutes from timed deployment job, above) -->
+        <property name="cronExpression" value="0 5/10 * * * ?" />
+      </bean>
 
     </beans>
 
-Once you've updated the file with the NodeRef or DNS name of the Web
-Project you wish to deploy, restart Alfresco then monitor the deployment
-reports to confirm the configuration.
+Once you've updated the file with the NodeRef(s) or DNS name(s) of the Web
+Project(s) you wish to deploy and prune, restart Alfresco then monitor the
+deployment reports to confirm the configuration.
 
 
 

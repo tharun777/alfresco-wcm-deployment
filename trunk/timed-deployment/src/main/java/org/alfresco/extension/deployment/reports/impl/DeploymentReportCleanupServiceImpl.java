@@ -53,12 +53,15 @@ public class DeploymentReportCleanupServiceImpl
 {
     private final Log log = LogFactory.getLog(DeploymentReportCleanupServiceImpl.class);
     
-    private final static String EMPTY_DEPLOYMENT_REPORT_CONTENT = "START default\r\nEND default\r\n";
+    private final static String EMPTY_DEPLOYMENT_REPORT_CONTENT        = "START default\r\nEND default\r\n";
+    private final static int    DEFAULT_MAX_REPORTS_TO_PRUNE_PER_BATCH = 100;
 
     
     private final ServiceRegistry  serviceRegistry;
     private final WebProjectHelper webProjectHelper;
     private final NodeService      nodeService;
+    
+    private int maxReportsToPrunePerBatch = DEFAULT_MAX_REPORTS_TO_PRUNE_PER_BATCH;
     
     
     
@@ -70,7 +73,16 @@ public class DeploymentReportCleanupServiceImpl
         this.nodeService      = serviceRegistry.getNodeService();
     }
             
-    
+
+    /**
+     * @see org.alfresco.extension.deployment.reports.DeploymentReportCleanupService#setMaxReportsToPrunePerBatch(int)
+     */
+    @Override
+    public void setMaxReportsToPrunePerBatch(int maxReportsToPrunePerBatch)
+    {
+        this.maxReportsToPrunePerBatch = maxReportsToPrunePerBatch <= 0 ? DEFAULT_MAX_REPORTS_TO_PRUNE_PER_BATCH : maxReportsToPrunePerBatch;
+    }
+
 
     /**
      * @see org.alfresco.extension.deployment.reports.DeploymentReportCleanupService#deleteNullDeploymentReports(java.lang.String)
@@ -106,6 +118,12 @@ public class DeploymentReportCleanupServiceImpl
                     log.debug("Found 'null' deployment attempt (" + deploymentAttemptNodeRef.toString() + "), deleting it.");
                     nodeService.deleteNode(deploymentAttemptNodeRef);
                     numberPruned++;
+                    
+                    if (numberPruned >= maxReportsToPrunePerBatch)
+                    {
+                        log.info("Hit limit on number of reports to prune per batch (" + maxReportsToPrunePerBatch + ").  Terminating pruning early.");
+                        break;
+                    }
                 }
             }
         }

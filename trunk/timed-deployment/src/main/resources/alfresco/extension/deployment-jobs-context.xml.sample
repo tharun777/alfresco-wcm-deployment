@@ -5,7 +5,7 @@
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.0.xsd http://www.springframework.org/schema/lang http://www.springframework.org/schema/lang/spring-lang-2.0.xsd">
 
   <!--
-   * TIMED DEPLOYMENT JOB
+   * TIMED DEPLOYMENT JOB(S)
    *
    * To configure one or more timed deployment jobs, replace [webProjectDNSName] in the bean id with a non-whitespace symbolic name
    * for your Web Project (any value is allowed, but for simplicity the DNS name of your Web Project is recommended), then replace
@@ -52,7 +52,7 @@
 
 
   <!--
-   * DEPLOYMENT REPORT CLEANUP JOB
+   * DEPLOYMENT REPORT CLEANUP JOB(S)
    *
    * To configure one or more deployment report cleanup jobs, replace [webProjectDNSName] in the bean id with a non-whitespace symbolic name
    * for your Web Project (any value is allowed, but for simplicity the DNS name of your Web Project is recommended), then replace
@@ -63,13 +63,14 @@
    *  - webProjectNodeRef:                        the node ref of the Web Project that this job will operate against.
    *                                              You can find this out by looking at the properties of the Web Project in the Explorer UI.
    *  - webProjectDNSName:                        the DNS name of the Web Project that this job will operate against.
+   *  - maxReportsToPrunePerBatch:                (optional) the maximum number of deployment reports to prune in a single run (default is 100).
    *
    * Note that only webProjectNodeRef OR webProjectDNSName should be provided, never both.
    *
    * The frequency of the job (ie. how often it runs) can be configured via the cronExpression property.  The allowed values for this
    * property are described in more detail at http://www.opensymphony.com/quartz/wikidocs/CronTriggers%20Tutorial.html.
    *
-   * Finally, you may configure multiple instances of this bean (with different ids) if you wish to configure timed deployment for multiple Web
+   * Finally, you may configure multiple instances of this bean (with different ids) if you wish to configure pruning for multiple Web
    * Projects.  In this case you may also configure different schedules for each of those Web Projects.
    *
   -->
@@ -88,6 +89,7 @@
             <entry key="webProjectNodeRef" value="[webProjectNodeRef]" />
             <!-- OR: -->
             <entry key="webProjectDNSName" value="[webProjectDNSName]" />
+            <entry key="maxReportsToPrunePerBatch" value="20" />
           </map>
         </property>
       </bean>

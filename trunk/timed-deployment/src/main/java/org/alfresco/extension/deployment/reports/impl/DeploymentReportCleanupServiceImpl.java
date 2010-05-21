@@ -53,7 +53,6 @@ public class DeploymentReportCleanupServiceImpl
 {
     private final Log log = LogFactory.getLog(DeploymentReportCleanupServiceImpl.class);
     
-    private final static String EMPTY_DEPLOYMENT_REPORT_CONTENT        = "START default\r\nEND default\r\n";
     private final static int    DEFAULT_MAX_REPORTS_TO_PRUNE_PER_BATCH = 100;
 
     
@@ -190,11 +189,14 @@ public class DeploymentReportCleanupServiceImpl
             {
                 // In addition, only those that didn't do anything can be "null"
                 ContentReader reader = serviceRegistry.getFileFolderService().getReader(deploymentReportNodeRef);
-                String content = reader.getContentString(EMPTY_DEPLOYMENT_REPORT_CONTENT.length() + 16);  // Only bother getting as much of the content as we need, with 16 bytes of buffer
-
+                // Get all contents in case deployment target name is long string.
+                String content = reader.getContentString();
+                
                 if (content != null)
-                {
-                    result = EMPTY_DEPLOYMENT_REPORT_CONTENT.equals(content);
+                {   
+                    String[] line = content.trim().split("\r\n", 2);
+
+                    result = (line[1].startsWith("END") && line[0].startsWith("START"));
                 }
             }
         }

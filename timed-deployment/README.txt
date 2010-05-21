@@ -14,6 +14,10 @@ Peter Monks (reverse sknompATocserflaDOTmoc)
 
 Release History
 ---------------
+v0.5 released 2010-05-21
+     Support default or user-defined deployment target name for "prune 'null' 
+     deployment reports".
+
 v0.4 released 2010-05-17
      Added "prune 'null' deployment reports" job.
 

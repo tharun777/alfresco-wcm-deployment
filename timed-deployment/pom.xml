@@ -12,7 +12,7 @@
   <packaging>jar</packaging>
 -->
   <name>Alfresco WCM Deployment - Timed Deployment</name>
-  <version>0.4</version>
+  <version>0.5</version>
 
   <repositories>
     <repository>

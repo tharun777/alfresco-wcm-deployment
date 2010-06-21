@@ -9,7 +9,7 @@ Targets for the following systems:
     * Apache CouchDB
     * eXist
     * Apache SOLR
-    * MongoDB 
+    * MongoDB <- IN PROGRESS
 
 (more will likely be added at a later date)
 
@@ -29,14 +29,13 @@ Brian Robinson (brobinson@alfresco.com)
 Pre-requisites
 --------------
 Alfresco 3.2 or better for the custom deployment targets (tested on Alfresco
-Enterprise 3.2r).
+Enterprise 3.3.0fcs).
 Alfresco 3.1 or better for the timed deployment job (tested on Alfresco
 Enterprise 3.1SP2)
 
 
 Installation / Configuration
 ----------------------------
-####TODO
 1. Build the AMP file using Maven2
 ####TODO
 

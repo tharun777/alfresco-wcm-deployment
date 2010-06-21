@@ -25,10 +25,12 @@
 
 package org.alfresco.extension.wcmdeployment.mongodb;
 
+import java.io.BufferedOutputStream;
 import java.io.OutputStream;
 import java.io.Serializable;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -39,7 +41,8 @@ import org.alfresco.deployment.DeploymentTarget;
 import org.alfresco.deployment.FileDescriptor;
 import org.alfresco.deployment.FileType;
 import org.alfresco.deployment.impl.DeploymentException;
-import org.alfresco.util.Pair;
+import org.alfresco.extension.wcmdeployment.NoopOutputStream;
+import org.alfresco.util.GUID;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -65,11 +68,32 @@ public class MongoDbDeploymentTarget
     private final static String DEFAULT_MONGO_DB_HOSTNAME = "localhost";
     private final static int    DEFAULT_MONGO_DB_PORT     = 27017;
     
-    private String hostname = DEFAULT_MONGO_DB_HOSTNAME;
-    private int    port     = DEFAULT_MONGO_DB_PORT;
+    private boolean authenticate = false;
+    private String  hostname     = DEFAULT_MONGO_DB_HOSTNAME;
+    private int     port         = DEFAULT_MONGO_DB_PORT;
     
-    private ConcurrentMap<String, DB> deployments = new ConcurrentHashMap<String, DB>();
+    private Mongo                                      mongo       = null;
+    private ConcurrentMap<String, Map<String, Object>> deployments = null;
 
+    
+    
+    public void init()
+    {
+        log.trace("MongoDbDeploymentTarget.init()");
+        
+        try
+        {
+            mongo = new Mongo(hostname, port);
+        }
+        catch (UnknownHostException uhe)
+        {
+            // Tra-lala-lala I hate checked exceptions...
+            throw new DeploymentException("Unable to connect to MongoDB server at: " + hostname + ":" + String.valueOf(port), uhe);
+        }
+        
+        deployments = new ConcurrentHashMap<String, Map<String, Object>>();
+    }
+    
     
     /**
      * @see org.alfresco.deployment.DeploymentTarget#begin(java.lang.String, java.lang.String, int, java.lang.String, java.lang.String)
@@ -80,34 +104,32 @@ public class MongoDbDeploymentTarget
                         final String user,
                         final char[] password)
     {
-        log.trace("MongoDbDeploymentTarget.begin()");
-        String result = buildDeploymentKey(target, storeName);
+        log.trace("MongoDbDeploymentTarget.begin(" + target + ", " + storeName + ", " + version + ")");
+        String result = GUID.generate();
         
-        try
+        DB database = mongo.getDB(storeName);        // We use the target name as the Mongo database name
+        
+        if (authenticate && user != null && user.trim().length() > 0)
         {
-            Mongo mongo    = new Mongo(hostname, port);
-            DB    database = mongo.getDB(target);        // We use the target name as the Mongo database name
-            
-            if (user != null && user.trim().length() > 0)
+            if (!database.authenticate(user, password))
             {
-                if (!database.authenticate(user, password))
-                {
-                    throw new RuntimeException("Unable to authenticate with MongoDB server.");
-                }
+                throw new RuntimeException("Unable to authenticate with MongoDB database '" + target + "'.");
             }
+        }
+        
+        Map<String, Object> deploymentState = new HashMap<String, Object>();
+        
+        deploymentState.put("target",   target);
+        deploymentState.put("store",    storeName);
+        deploymentState.put("version",  Integer.valueOf(version));
+        deploymentState.put("database", database);
 
-            if (deployments.putIfAbsent(result, database) != null)
-            {
-                throw new IllegalStateException("A deployment to this target is already in progress.");
-            }
-            
-            database.requestStart();
-        }
-        catch (UnknownHostException uhe)
+        if (deployments.putIfAbsent(result, deploymentState) != null)
         {
-            // Tra-lala-lala I hate checked exceptions...
-            throw new DeploymentException("Unable to connect to MongoDB server at: " + hostname + ":" + String.valueOf(port), uhe);
+            throw new IllegalStateException("A deployment to this target is already in progress.");
         }
+        
+        database.requestStart();
         
         return(result);
     }
@@ -119,7 +141,7 @@ public class MongoDbDeploymentTarget
     public void prepare(final String ticket)
         throws DeploymentException
     {
-        log.trace("MongoDbDeploymentTarget.prepare()");
+        log.trace("MongoDbDeploymentTarget.prepare(" + ticket + ")");
         
         // Note: MongoDB isn't transactional, so this is a NO-OP
     }
@@ -128,13 +150,18 @@ public class MongoDbDeploymentTarget
     /**
      * @see org.alfresco.deployment.DeploymentTarget#createDirectory(java.lang.String, java.lang.String, java.lang.String, java.util.Set, java.util.Map)
      */
-    public void createDirectory(final String ticket, final String path, final String guid, final Set<String>aspects, final Map<String, Serializable> properties)
+    public void createDirectory(final String                    ticket,
+                                final String                    path,
+                                final String                    guid,
+                                final Set<String>               aspects,
+                                final Map<String, Serializable> properties)
         throws DeploymentException
     {
-        log.trace("MongoDbDeploymentTarget.createDirectory()");
+        log.trace("MongoDbDeploymentTarget.createDirectory(" + ticket + ", " + path + ")");
         
-        // NO-OP - we don't need the concept of directories in MongoDB
+        //####TODO!!!!
         //####NOTE: may need to be stored anyway (as some kind of placeholder document), to ensure getListing works as authoring expects
+        // NO-OP - we don't need the concept of directories in MongoDB
     }
 
 
@@ -144,7 +171,7 @@ public class MongoDbDeploymentTarget
     public void delete(final String ticket, final String path)
         throws DeploymentException
     {
-        log.trace("MongoDbDeploymentTarget.delete()");
+        log.trace("MongoDbDeploymentTarget.delete(" + ticket + ", " + path + ")");
         
         DBCollection collection = getCollection(ticket);
         DBObject     document   = findByPath(collection, path);
@@ -161,70 +188,35 @@ public class MongoDbDeploymentTarget
      */
     public int getCurrentVersion(final String target, final String storeName)
     {
-        log.trace("MongoDbDeploymentTarget.getCurrentVersion()");
+        log.trace("MongoDbDeploymentTarget.getCurrentVersion(" + target + ", " + storeName + ")");
         int result = 0;
         
-        DB database = deployments.get(buildDeploymentKey(target, storeName));
+        DB       database          = mongo.getDB(storeName);
+        DBObject currentVersionDoc = findOrCreateVersionDoc(database);
+        Object   currentVersion    = currentVersionDoc.get(target);
         
-        if (database != null)
+        try
         {
-            DBCollection collection        = database.getCollection("deploymentSystem");
-            DBObject     currentVersionDoc = collection.findOne("currentVersion");
-            
-            if (currentVersionDoc != null)
-            {
-                if (currentVersionDoc.containsField("currentVersion"))
-                {
-                    Object currentVersion = currentVersionDoc.get("currentVersion");
-                    
-                    if (currentVersion != null)
-                    {
-                        try
-                        {
-                            result = Integer.valueOf(String.valueOf(currentVersion));
-                        }
-                        catch (NumberFormatException nfe)
-                        {
-                            log.warn("Unable to parse version " + String.valueOf(currentVersion) + " from current version document.  Ignoring and resetting version to 0.");
-                            result = 0;
-                            currentVersionDoc.put("currentVersion", result);
-                            collection.save(currentVersionDoc);
-                        }
-                    }
-                }
-                else
-                {
-                    // Shouldn't happen, but just in case...
-                    log.warn("Current version document was missing currentVersion field.  Resetting version to 0.");
-                    currentVersionDoc.put("currentVersion", result);
-                    collection.save(currentVersionDoc);
-                }
-            }
-            else
-            {
-                // No current version doc (presumably because we've never deployed to this MongoDB before), so create a new one
-                log.info("No current version document found.  Creating at version 0.");
-                currentVersionDoc = new BasicDBObject();
-                currentVersionDoc.put("currentVersion", result);
-                collection.save(currentVersionDoc);
-            }
+            result = Integer.valueOf(String.valueOf(currentVersion));
         }
-        else
+        catch (NumberFormatException nfe)
         {
-            throw new DeploymentException("Invalid state: could not retrieve database object using key " + buildDeploymentKey(target, storeName));
+            log.warn("Unable to parse version '" + String.valueOf(currentVersion) + "' from current version document.  Ignoring and resetting version to 0.");
+            result = 0;
+            setVersion(database, result);
         }
         
         return(result);
     }
-
-
+    
+    
     /**
      * @see org.alfresco.deployment.DeploymentTarget#getListing(java.lang.String, java.lang.String)
      */
     public List<FileDescriptor> getListing(final String ticket, final String parentPath)
         throws DeploymentException
     {
-        log.trace("MongoDbDeploymentTarget.getListing()");
+        log.trace("MongoDbDeploymentTarget.getListing(" + ticket + ", " + parentPath + ")");
         
         List<FileDescriptor> result          = new ArrayList<FileDescriptor>();
         DBCollection         collection      = getCollection(ticket);
@@ -232,7 +224,7 @@ public class MongoDbDeploymentTarget
         DBCursor             cursor          = null; 
         
         collection.ensureIndex("parentPath");   // Make sure we index parentPath, so that listings are efficient
-        parentPathQuery.put("parentPath", new BasicDBObject("$eq", parentPath));
+        parentPathQuery.put("parentPath", parentPath);
         cursor = collection.find(parentPathQuery);
         
         while (cursor.hasNext())
@@ -257,7 +249,7 @@ public class MongoDbDeploymentTarget
                              final Map<String, Serializable> props)
         throws DeploymentException
     {
-        log.trace("MongoDbDeploymentTarget.send()");
+        log.trace("MongoDbDeploymentTarget.send(" + ticket + ", " + path + ")");
         
         OutputStream result = null;
         
@@ -273,8 +265,9 @@ public class MongoDbDeploymentTarget
             document.put("parentPath", getParentPath(path));
             document.put("filename",   getFileName(path));
             document.put("mimeType",   mimeType);
-            
-            result = new XmlToBsonMappingOutputStream(collection, document);
+
+            // We use a BufferedOutputStream here since using the XmlToBsonMappingOutputStream results in "read end dead" IOExceptions. ####TODO: Get to the bottom of this...
+            result = new BufferedOutputStream(new XmlToBsonMappingOutputStream(collection, document));
         }
         
         return(result);
@@ -284,11 +277,16 @@ public class MongoDbDeploymentTarget
     /**
      * @see org.alfresco.deployment.DeploymentTarget#updateDirectory(java.lang.String, java.lang.String, java.lang.String, java.util.Set, java.util.Map)
      */
-    public void updateDirectory(final String ticket, final String path, final String guid, final Set<String> aspects, final Map<String, Serializable> properties)
+    public void updateDirectory(final String                    ticket,
+                                final String                    path,
+                                final String                    guid,
+                                final Set<String>               aspects,
+                                final Map<String, Serializable> properties)
         throws DeploymentException
     {
         log.trace("MongoDbDeploymentTarget.updateDirectory()");
 
+        //####TODO!!!!
         // NO-OP - we don't need the concept of directories in MongoDB
     }
 
@@ -298,33 +296,51 @@ public class MongoDbDeploymentTarget
      */
     public void commit(final String ticket)
     {
-        log.trace("MongoDbDeploymentTarget.commit()");
-
-        // Note: MongoDB isn't transactional, so this is effectively a NO-OP
-        deployments.get(ticket).requestDone();
+        log.trace("MongoDbDeploymentTarget.commit(" + ticket + ")");
+        
+        // Update the version number then clear out the transient deployment state
+        DB database = getDatabase(ticket);
+        
+        setVersion(database, getVersion(ticket));
+        database.requestDone();
         deployments.remove(ticket);
     }
 
 
     /**
+     * MongoDB isn't transactional, so this is effectively a NO-OP.
+     * 
      * @see org.alfresco.deployment.DeploymentTarget#abort(java.lang.String)
      */
     public void abort(final String ticket)
     {
-        log.trace("MongoDbDeploymentTarget.abort()");
+        log.trace("MongoDbDeploymentTarget.abort(" + ticket + ")");
         
-        // Note: MongoDB isn't transactional, so this is effectively a NO-OP
-        deployments.get(ticket).requestDone();
-        deployments.remove(ticket);
+        // Clear out the transient deployment state
+        if (deployments.containsKey(ticket))   // WARNING WARNING WARNING: Not thread safe
+        {
+            getDatabase(ticket).requestDone();
+            deployments.remove(ticket);
+        }
+    }
+
+
+    /**
+     * @param authenticate the authenticate to set
+     */
+    public void setAuthenticate(final boolean authenticate)
+    {
+        log.trace("MongoDbDeploymentTarget.setAuthenticate(" + authenticate + ")");
+        this.authenticate = authenticate;
     }
 
 
     /**
      * @param hostname the hostname to set
      */
-    public void setHostname(String hostname)
+    public void setHostname(final String hostname)
     {
-        log.trace("MongoDbDeploymentTarget.setHostname()");
+        log.trace("MongoDbDeploymentTarget.setHostname(" + hostname + ")");
         this.hostname = hostname;
     }
 
@@ -332,38 +348,49 @@ public class MongoDbDeploymentTarget
     /**
      * @param port the port to set
      */
-    public void setPort(int port)
+    public void setPort(final int port)
     {
-        log.trace("MongoDbDeploymentTarget.setPort()");
+        log.trace("MongoDbDeploymentTarget.setPort(" + port + ")");
         this.port = port;
     }
-
-
+    
+    
+    
     /**
      * Retrieves the collection for the given ticket.
+     * ####TODO: Refactor to use a collection per source document root element
      * 
      * @param ticket The ticket <i>(must not be null, empty or blank)</i>.
      * @return The collection (if any) for that ticket <i>(may be null)</i>.
      */
     private DBCollection getCollection(final String ticket)
     {
-        log.trace("MongoDbDeploymentTarget.getCollection()");
+        log.trace("MongoDbDeploymentTarget.getCollection(" + ticket + ")");
         
-        // PRECONDITIONS
-        assert ticket != null             : "ticket must not be null";
-        assert ticket.trim().length() > 0 : "ticket must not be empty or blank.";
-        
-        // Body
-        String       collectionName = ticket.split("\\/")[1];
-        DBCollection result         = deployments.get(ticket).getCollection(collectionName);   // We use the storeName as the MongoDB collection name
-        
-        return(result);
+        return(getDatabase(ticket).getCollection("deployedData"));
+    }
+    
+    private DB getDatabase(final String ticket)
+    {
+        return((DB)deployments.get(ticket).get("database"));
     }
     
     
-    private String buildDeploymentKey(final String target, final String storeName)
+    private String getTarget(final String ticket)
     {
-        return(target + "/" + storeName);
+        return((String)deployments.get(ticket).get("target"));
+    }
+    
+    
+    private String getStore(final String ticket)
+    {
+        return((String)deployments.get(ticket).get("store"));
+    }
+
+
+    private int getVersion(final String ticket)
+    {
+        return((Integer)deployments.get(ticket).get("version"));
     }
     
     
@@ -376,7 +403,7 @@ public class MongoDbDeploymentTarget
             DBObject pathQuery = new BasicDBObject();
             
             collection.ensureIndex("path");   // Make sure we index path, so that listings are efficient
-            pathQuery.put("path", new BasicDBObject("$eq", path));
+            pathQuery.put("path", path);
             result = collection.findOne(pathQuery);
         }
         
@@ -394,5 +421,81 @@ public class MongoDbDeploymentTarget
     {
         return(path.substring(path.lastIndexOf('/')));
     }
+    
+    
+    private DBObject findVersionDoc(final DB database)
+    {
+        DBObject result = null;
+        
+        if (database != null)
+        {
+            DBCollection collection = database.getCollection("deploymentSystem");
+            result = collection.findOne("version");
+        }
+        
+        return(result);
+    }
+    
+    
+    private DBObject createVersionDoc(final DB database)
+    {
+        DBObject result = null;
+        
+        if (database != null)
+        {
+            DBCollection collection = database.getCollection("deploymentSystem");
+            result = new BasicDBObject();
+            result.put("_id", "version");
+            result.put("version", 0);
+            collection.save(result);
+        }
+        
+        return(result);
+    }
+    
+    
+    private DBObject findOrCreateVersionDoc(final DB database)
+    {
+        DBObject result = findVersionDoc(database);
+        
+        if (result == null)
+        {
+            result = createVersionDoc(database);
+        }
+        
+        if (result != null)
+        {
+            if (!result.containsField("version"))
+            {
+                // Shouldn't happen, but just in case...
+                log.warn("Version document was missing 'version' field.  Resetting to 0.");
+                result.put("version", 0);
+                setVersion(database, 0);
+            }
+        }
+        else
+        {
+            // Shouldn't happen, but just in case...
+            throw new IllegalStateException("Unable to find or create version document.");
+        }
+        
+        return(result);
+    }
+    
+    
+    private void setVersion(final DB database, final int version)
+    {
+        if (database != null)
+        {
+            DBCollection collection = database.getCollection("deploymentSystem");
+            DBObject     query      = new BasicDBObject();
+            DBObject     statement  = new BasicDBObject();
+            
+            query.put("_id", "version");
+            statement.put("$set", new BasicDBObject("version", version));
+            collection.update(query, statement);
+        }
+    }
+    
     
 }

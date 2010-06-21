@@ -68,7 +68,40 @@ public class XmlToBsonMappingOutputStream
     }
     
 
-    /* (non-Javadoc)
+    /**
+     * @see java.io.OutputStream#write(byte[])
+     */
+    @Override
+    public void write(final byte[] b)
+        throws IOException
+    {
+        // TODO Auto-generated method stub
+    }
+
+
+    /**
+     * @see java.io.OutputStream#write(byte[], int, int)
+     */
+    @Override
+    public void write(final byte[] b, final int off, final int len)
+        throws IOException
+    {
+        // TODO Auto-generated method stub
+    }
+
+
+    /**
+     * @see java.io.OutputStream#flush()
+     */
+    @Override
+    public void flush()
+        throws IOException
+    {
+        // TODO Auto-generated method stub
+    }
+
+
+    /**
      * @see java.io.OutputStream#close()
      */
     @Override
